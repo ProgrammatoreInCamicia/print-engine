@@ -1,0 +1,19 @@
+{
+  "name": "@print-engine/schema",
+  "version": "0.0.1",
+  "description": "Il modello JSON del documento, versionato, più un validatore senza dipendenze.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "author": "ProgrammatoreInCamicia",
+  "license": "ISC"
+}
