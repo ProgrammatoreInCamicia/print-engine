@@ -1,0 +1,19 @@
+{
+  "name": "@print-engine/expr",
+  "version": "0.0.1",
+  "description": "The expression engine: parses and evaluates binding expressions like $item.field and SUM(...) against a data context. Designed for two interchangeable implementations (TypeScript now, Rust→Wasm later) behind one contract.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "author": "ProgrammatoreInCamicia",
+  "license": "ISC"
+}
