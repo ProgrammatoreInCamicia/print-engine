@@ -53,6 +53,7 @@ export function tokenize(src: string): Tok[] {
             default:
                 break;
         }
+        // num
         if (c >= '0' && c <= '9') {
             let j = i + 1;
             while (j < src.length && isNumberChar(src[j])) {
@@ -63,6 +64,43 @@ export function tokenize(src: string): Tok[] {
             i = j;
             continue;
         }
+        // ident
+        if (isIdentStart(c)) {
+            let j = i + 1;
+            while (j < src.length && isIdentChar(src[j]))
+            {
+                j++;
+            }
+            const value = src.slice(i, j);
+            toks.push({t: 'ident', v: value});
+            i = j;
+            continue;
+        }
+        // root
+        if (c == '$') {
+            let j = i + 1;
+            while (j < src.length && isIdentChar(src[j]))
+            {
+                j++;
+            }
+            const value = src.slice(i, j);
+            toks.push({t: 'root', v: value});
+            i = j;
+            continue;
+        }
+        // string
+        if (c === "'" || c === '"')
+        {
+            const quote = c;
+            let j = i + 1;
+            while (j < src.length && src[j] !== quote) {
+                j++;
+            }
+            const value = src.slice(i + 1, j);
+            toks.push({t: 'str', v: value});
+            i = j + 1;
+            continue;
+        }
     }
 
     toks.push({ t: 'eof' });
@@ -70,5 +108,26 @@ export function tokenize(src: string): Tok[] {
 }
 
 function isNumberChar(ch: string | undefined): boolean {
-    return ch != null && ((ch >= '0' && ch <= '9') || ch == '.')
+    return ch != null && (
+        (ch >= '0' && ch <= '9') || 
+        (ch == '.')
+    );
+}
+
+
+function isIdentStart(ch: string | undefined): boolean {
+    return ch != null && (
+        (ch >= 'a' && ch <= 'z') ||
+        (ch >= 'A' && ch <= 'Z') ||
+        (ch === '_')
+    );
+}
+
+function isIdentChar(ch: string | undefined): boolean {
+    return ch != null && (
+        (ch >= 'a' && ch <= 'z') ||
+        (ch >= 'A' && ch <= 'Z') ||
+        (ch >= '0' && ch <= '9') ||
+        (ch === '_')
+    );
 }
