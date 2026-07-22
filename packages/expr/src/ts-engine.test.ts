@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { tokenize } from './ts-engine.js';
+import { parse, tokenize } from './ts-engine.js';
 
 describe('tokenize', () => {
     it('tokenize an integer number', () => {
@@ -124,5 +124,87 @@ describe('tokenize', () => {
             { t: 'rparen' },
             { t: 'eof' },
         ]);
+    });
+
+    it('parse letter', () => {
+        const ast = parse("'T'");
+        expect(ast).toEqual({k: 'lit', v: 'T'});
+    });
+
+    it('parse number', () => {
+        const ast = parse("2");
+        expect(ast).toEqual({k: 'lit', v: 2});
+    });
+
+    it('parse empty root', () => {
+        const ast = parse("$");
+        expect(ast).toEqual({k: 'root', name: "$"});
+    });
+
+    it('parse function call without args', () => {
+        const ast = parse("SUM()");
+        expect(ast).toEqual({k: 'call', name: "SUM", args: []});
+    });
+
+    it('parse function call with numbers as args', () => {
+        const ast = parse("SUM(1, 2)");
+        expect(ast).toEqual({k: 'call', name: "SUM", args: [
+            {k: 'lit', v: 1},
+            {k: 'lit', v: 2},
+        ]});
+    });
+
+    it('parse function call with variables as args', () => {
+        const ast = parse("SUM(a, b)");
+        expect(ast).toEqual({k: 'call', name: "SUM", args: [
+            {k: 'member', name: 'a', obj: {k: 'root', name: '$'}},
+            {k: 'member', name: 'b', obj: {k: 'root', name: '$'}},
+        ]});
+    });
+
+    it('parse function call with child root variable as arg', () => {
+        const ast = parse("SUM($item.child)");
+        expect(ast).toEqual({k: 'call', name: "SUM", args: [
+            {k: 'member', name: 'child', obj: {k: 'root', name: '$item'}},
+        ]});
+    });
+
+    it('parse deep member chain', () => {
+        const ast = parse('$group.items.passeggeri');
+        expect(ast).toEqual({
+            k: 'member', name: 'passeggeri',
+            obj: {
+                k: 'member', name: 'items',
+                obj: { k: 'root', name: '$group' }
+            }
+        });
+    });
+
+    it('parse array index', () => {
+        const ast = parse('$.run[0]');
+        expect(ast).toEqual({
+            k: 'index',
+            obj: { k: 'member', name: 'run', obj: { k: 'root', name: '$' } },
+            index: { k: 'lit', v: 0 }
+        });
+    });
+
+    it('parse property in array index', () => {
+        const ast = parse('$.run[0].runCode');
+        expect(ast).toEqual({
+            k: 'member',
+            name: 'runCode',
+            obj: {
+                k: 'index',
+                obj: { k: 'member', name: 'run', obj: { k: 'root', name: '$' } },
+                index: { k: 'lit', v: 0 }
+            }
+        });
+    });
+
+    it('rejects malformed expressions', () => {
+        expect(() => parse('SUM(')).toThrow();
+        expect(() => parse('$item.')).toThrow();
+        expect(() => parse('42 43')).toThrow();
     });
 });

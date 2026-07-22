@@ -1,3 +1,5 @@
+import { Json } from "./contract";
+
 export type Tok =
   | { t: 'num'; v: number }
   | { t: 'str'; v: string }
@@ -10,6 +12,13 @@ export type Tok =
   | { t: 'rbrack' }
   | { t: 'comma' }
   | { t: 'eof' };
+
+type Ast =
+  | { k: 'lit'; v: Json }
+  | { k: 'root'; name: string }
+  | { k: 'member'; obj: Ast; name: string }
+  | { k: 'index'; obj: Ast; index: Ast }
+  | { k: 'call'; name: string; args: Ast[] };
 
 export function tokenize(src: string): Tok[] {
     const toks: Tok[] = [];
@@ -130,4 +139,103 @@ function isIdentChar(ch: string | undefined): boolean {
         (ch >= '0' && ch <= '9') ||
         (ch === '_')
     );
+}
+
+class Parser {
+    private position = 0;
+    constructor(private toks: Tok[]) {}
+
+    private peek(): Tok {
+        return this.toks[this.position]!;
+    }
+
+    private next(): Tok {
+        return this.toks[this.position++]!;
+    }
+
+    private expect<K extends Tok['t']>(t: K): Extract<Tok, { t: K }> {
+        const tok = this.next();
+        if (tok.t !== t) throw new Error(`expected ${t}, got ${tok.t}`);
+        return tok as Extract<Tok, { t: K }>;
+    }
+
+    parse(): Ast {
+        const ast = this.parsePrimary();
+        if (this.peek().t !== 'eof') {
+            throw new Error(`unexpected trailing token: ${this.peek().t}`);
+        }
+        return ast;
+    }
+    
+    parsePrimary(): Ast {
+        const tok = this.peek();
+        switch (tok.t) {
+            case 'num':
+                this.next();
+                return {k: 'lit', v: tok.v};
+            case 'str':
+                this.next();
+                return { k: 'lit', v: tok.v };
+            case 'root':
+                this.next();
+                return this.parsePostFix({ k: 'root', name: tok.v });
+            case 'ident':
+                this.next();
+                const newTok = this.peek();
+                if (newTok.t == 'lparen') {
+                    // function call 
+                    this.next();
+                    return this.parseCall(tok.v);
+                } else {
+                    // it's like root
+                    return this.parsePostFix({
+                        k: 'member', obj: { k: 'root', name: '$'},
+                        name: tok.v
+                    });
+                }
+            default:
+                throw new Error(`unexpected token: ${tok.t}`);
+        }
+    }
+
+    parsePostFix(base: Ast): Ast {
+        let node = base;
+        while(true)
+        {
+            const tok = this.peek();
+            if (tok.t == 'dot')
+            {
+                this.next();
+                let nextTok = this.expect('ident');
+                node = { k: 'member', obj: node, name: nextTok.v };
+            } else if (tok.t == 'lbrack') {
+                this.next();
+                let index = this.parsePrimary();
+                this.expect('rbrack');
+                node = { k: 'index', obj: node, index };
+            } else {
+                return node;
+            }
+        }
+    }
+
+    parseCall(name: string): Ast {
+        const callNode: Ast = {k: 'call', name, args: []};
+        // i need to find all arguments
+        const tok = this.peek();
+        if (tok.t !== 'rparen') {
+            callNode.args.push(this.parsePrimary());
+            while (this.peek().t === 'comma') {
+                this.next();
+                callNode.args.push(this.parsePrimary());
+            }
+        }
+        // i finish all argument, i need to check that ther's the closed parenthesis
+        this.expect('rparen');
+        return callNode;
+    }
+}
+
+export function parse(src: string): Ast {
+    return new Parser(tokenize(src)).parse();
 }
