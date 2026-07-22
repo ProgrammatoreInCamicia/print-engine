@@ -1,4 +1,4 @@
-type Tok =
+export type Tok =
   | { t: 'num'; v: number }
   | { t: 'str'; v: string }
   | { t: 'ident'; v: string }
@@ -11,7 +11,7 @@ type Tok =
   | { t: 'comma' }
   | { t: 'eof' };
 
-function tokenize(src: string): Tok[] {
+export function tokenize(src: string): Tok[] {
     const toks: Tok[] = [];
     let i = 0;
     
@@ -55,7 +55,7 @@ function tokenize(src: string): Tok[] {
         }
         if (c >= '0' && c <= '9') {
             let j = i + 1;
-            while (j < src.length && isDigit(src[j])) {
+            while (j < src.length && isNumberChar(src[j])) {
                 j++;
             }
             const value = src.slice(i, j);
@@ -69,6 +69,6 @@ function tokenize(src: string): Tok[] {
     return toks;
 }
 
-function isDigit(ch: string | undefined): boolean {
+function isNumberChar(ch: string | undefined): boolean {
     return ch != null && ((ch >= '0' && ch <= '9') || ch == '.')
 }
