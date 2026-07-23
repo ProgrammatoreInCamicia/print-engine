@@ -10,7 +10,7 @@ export interface EvalContext {
     root: Json;
     item?: Json;
     group?: Json;
-    page?: { cuurrent: number; total: number };
+    page?: { current: number; total: number };
 }
 
 export type EvalResult =
