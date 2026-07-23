@@ -1,4 +1,4 @@
-import { Json } from "./contract";
+import { EvalContext, EvalResult, ExpressionEngine, Json } from "./contract";
 
 export type Tok =
   | { t: 'num'; v: number }
@@ -238,4 +238,122 @@ class Parser {
 
 export function parse(src: string): Ast {
     return new Parser(tokenize(src)).parse();
+}
+
+function EvalAst(ast: Ast, ctx: EvalContext): Json {
+    switch (ast.k) {
+        case 'lit':
+            return ast.v    
+        case 'root':
+            return resolveRoot(ast.name, ctx);
+        case 'member': {
+            const objVal = EvalAst(ast.obj, ctx);
+            return getMember(objVal, ast.name);
+        };
+        case 'index': {
+            const objVal = EvalAst(ast.obj, ctx);
+            const indexVal = EvalAst(ast.index, ctx);
+            if (Array.isArray(objVal) && typeof indexVal === 'number') {
+                // array with index
+                return objVal[indexVal] ?? null;
+            } else if (isObject(objVal) && typeof indexVal === 'string') {
+                // object with property access
+                return objVal[indexVal] ?? null;
+            }
+            return null;
+        };
+        case 'call': {
+            const argsVal = ast.args.map(arg => EvalAst(arg, ctx));
+            return evalCall(ast.name, argsVal);
+        }
+        default:
+            return null;
+    }
+}
+
+function resolveRoot(name: string, ctx: EvalContext): Json {
+    switch (name) {
+        case '$group':
+            return ctx.group ?? null;
+        case '$item':
+            return ctx.item ?? null;
+        case '$page':
+            return ctx.page ?? null;
+        case '$':
+            return ctx.root;
+        default:
+            return null;
+    }
+}
+
+function getMember(obj: Json, name: string): Json {
+    if (Array.isArray(obj)) {
+        // it's an array
+        return obj.map(el => getMember(el, name));
+    } else if (isObject(obj)) {
+        // is an object, return the value
+        return obj[name] ?? null;
+    } else {
+        return null;
+    }
+}
+
+function isObject(v: unknown): v is Record<string, unknown> {
+    return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function evalCall(name: string, args: Json[]): Json {
+    switch (name) {
+        case 'SUM': {
+            const nums = args.flatMap(a => toNumbers(a));
+            return nums.reduce((x, y) => x + y, 0);
+        }
+        case 'COUNT': {
+            const values = args.flatMap(a => Array.isArray(a) ? a : [a]);
+            return values.filter(x => x != null).length;
+        };
+        case 'AVG': {
+            const nums = args.flatMap(a => toNumbers(a));
+            if (nums.length === 0) return 0;
+            return nums.reduce((x, y) => x + y, 0)/nums.length;
+        }
+        case 'MIN': {
+            const nums = args.flatMap(a => toNumbers(a));
+            return nums.length ? Math.min(...nums) : null;
+        }
+        case 'MAX': {
+            const nums = args.flatMap(a => toNumbers(a));
+            return nums.length ? Math.max(...nums) : null;
+        }
+        case 'CONCAT':
+            return args.map(v => v === null ? '' : String(v)).join('');
+        default:
+            break;
+    }
+    return null;
+}
+
+function toNumbers(v: Json): number[] {
+    if (Array.isArray(v)) return v.filter((x): x is number => typeof x === 'number');
+    if (typeof v === 'number') return [v];
+    return [];
+}
+
+export class TsExpressionEngine implements ExpressionEngine {
+    readonly kind = 'ts';
+
+    evaluate(expression: string, ctx: EvalContext): EvalResult {
+        try {
+            const ast = new Parser(tokenize(expression)).parse();
+            return {
+                ok: true,
+                value: EvalAst(ast, ctx)
+            };
+        } catch (e) {
+            return {
+                ok: false,
+                error: e instanceof Error ? e.message: String(e)
+            };
+        }
+    }
 }
