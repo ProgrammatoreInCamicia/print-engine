@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parse, tokenize } from './ts-engine.js';
+import { parse, tokenize, TsExpressionEngine } from './ts-engine.js';
 
 describe('tokenize', () => {
     it('tokenize an integer number', () => {
