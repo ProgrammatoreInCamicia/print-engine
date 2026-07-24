@@ -99,7 +99,7 @@ export type Node =
   | CanvasNode;
 
 export interface PageSetup {
-    size: "A4" | "A5" | "Letter" | "Legal";
+    size: "A3" | "A4" | "A5" | "Letter" | "Legal";
     orientation?: "portrait" | "landscape";
     margin?: Length;
 }

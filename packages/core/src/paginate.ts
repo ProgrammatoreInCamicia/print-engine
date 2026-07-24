@@ -12,6 +12,17 @@ export interface PaginatedDocument {
 }
 
 function getPageArea(page: PageSetup): PageSize {
+    const pageSize = getPageSize(page);
+    if (page.margin != null) {
+        const marginInMM = convertMeasureToMm(page.margin);
+        pageSize.width -= marginInMM * 2;
+        pageSize.height -= marginInMM * 2;
+    }
+
+    return pageSize;
+}
+
+export function getPageSize(page: PageSetup): PageSize {
     const pageSizeMap = pageSizeFormat.get(page.size);
     if (pageSizeMap == null) return {height: 0, width: 0};
     const pageSize = {...pageSizeMap};
@@ -19,11 +30,6 @@ function getPageArea(page: PageSetup): PageSize {
         const width = pageSize.width;
         pageSize.width = pageSize.height;
         pageSize.height = width;
-    }
-    if (page.margin != null) {
-        const marginInMM = convertMeasureToMm(page.margin);
-        pageSize.width -= marginInMM * 2;
-        pageSize.height -= marginInMM * 2;
     }
 
     return pageSize;
@@ -82,7 +88,7 @@ export function paginate(doc: PrintDocument, resolved: ResolvedNode, measurer: M
 
 export interface PageSize { width: number; height: number };
 
-const pageSizeFormat: Map<string, PageSize> = new Map<string, PageSize>([
+const pageSizeFormat: Map<"A3" | "A4" | "A5" | "Letter" | "Legal", PageSize> = new Map<"A3" | "A4" | "A5" | "Letter" | "Legal", PageSize>([
     ['A3', { width: 297, height: 420 }],
     ['A4', { width: 210, height: 297 }],
     ['A5', { width: 148, height: 210 }],

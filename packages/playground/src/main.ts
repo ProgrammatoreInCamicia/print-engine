@@ -1,6 +1,6 @@
-import { resolve } from '@print-engine/core';
+import { paginate, resolve } from '@print-engine/core';
 import { TsExpressionEngine } from '@print-engine/expr';
-import { renderNode } from '@print-engine/adapter-html';
+import { DomMeasurer, renderNode, renderPages } from '@print-engine/adapter-html';
 import type { PrintDocument, Node } from '@print-engine/schema';
 
 // Una colonna = badge linea + direzione + corse raggruppate per periodo
@@ -190,11 +190,16 @@ const data = {
   },
 };
 
-const resolved = resolve(doc, data, new TsExpressionEngine());
 const output = document.getElementById('output');
-if (output) {
-  output.innerHTML = renderNode(resolved);
-}
+const resolved = resolve(doc, data, new TsExpressionEngine());
+const paginated = paginate(doc, resolved, new DomMeasurer());
+if (output)
+output.innerHTML = renderPages(paginated, doc.page);
+
+// const resolved = resolve(doc, data, new TsExpressionEngine());
+// if (output) {
+//   output.innerHTML = renderNode(resolved);
+// }
 // import { resolve } from '@print-engine/core';
 // import { TsExpressionEngine } from '@print-engine/expr';
 // import { renderNode } from '@print-engine/adapter-html';
