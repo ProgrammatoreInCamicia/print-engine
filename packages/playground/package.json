@@ -1,0 +1,18 @@
+{
+  "name": "@print-engine/playground",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@print-engine/core": "workspace:*",
+    "@print-engine/expr": "workspace:*",
+    "@print-engine/schema": "workspace:*",
+    "@print-engine/adapter-html": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}

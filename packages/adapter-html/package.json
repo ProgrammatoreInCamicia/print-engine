@@ -1,0 +1,23 @@
+{
+  "name": "@print-engine/adapter-html",
+  "version": "0.0.1",
+  "description": "HTML/CSS rendering adapter: turns a resolved node tree into markup. The only package allowed to know about the DOM and browser-specific concerns.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@print-engine/schema": "workspace:*",
+    "@print-engine/core": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "author": "ProgrammatoreInCamicia",
+  "license": "ISC"
+}

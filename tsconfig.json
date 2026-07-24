@@ -4,5 +4,6 @@
     { "path": "./packages/schema" },
     { "path": "./packages/expr" },
     { "path": "./packages/core" },
+    { "path": "./packages/adapter-html" },
   ]
 }
