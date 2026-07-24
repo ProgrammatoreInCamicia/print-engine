@@ -170,6 +170,34 @@ const doc: PrintDocument = {
       {
         type: 'stack',
         direction: 'column',
+        style: { padding: '10px 0 0 0', gap: '2px' },
+        children: [
+          {
+            type: 'field',
+            bind: 'SUM($.lineA.runs.passengers)',
+            prefix: 'Passeggeri linea C12: ',
+            format: 'number:0',
+            style: { size: '9pt', weight: 700 },
+          },
+          {
+            type: 'field',
+            bind: 'AVG($.lineA.runs.passengers)',
+            prefix: 'Media passeggeri per corsa: ',
+            format: 'number:0.00',
+            style: { size: '9pt' },
+          },
+          {
+            type: 'field',
+            bind: '$.meta.generatedAt',
+            prefix: 'Documento generato il ',
+            format: 'date:dd/MM/yyyy',
+            style: { size: '9pt', color: '#666666' },
+          },
+        ],
+      },
+      {
+        type: 'stack',
+        direction: 'column',
         style: { padding: '10px 0 0 0' },
         children: [
           { type: 'text', value: "(G1) A Como transita nell'ordine da Staz. San Giovanni, P.zza Vittoria, Via Ambrosoli, Giovio, Magistri Comacini.", style: { size: '8pt' } },
@@ -189,7 +217,7 @@ function runs(
   destinations: string[],
   note: string,
 ) {
-  const out: Array<Record<string, string>> = [];
+  const out: Array<Record<string, string | number>> = [];
   for (const period of periods) {
     for (let i = 0; i < perPeriod; i++) {
       const h = baseHour + Math.floor(i / 4);
@@ -200,6 +228,7 @@ function runs(
         cadence: i % 3 === 0 ? 'FEST' : 'SCOL',
         destination: destinations[i % destinations.length]!,
         note,
+        passengers: 10 + (i % 20),
       });
     }
   }
@@ -218,6 +247,7 @@ const data = {
     code: 'C43',
     runs: runs(['test', 'test2', 'test3', 'test4'], 12, 7, ['COMO', 'SAN FERMO DELLA'], '73'),
   },
+  meta: { generatedAt: '2026-01-15' },
 };
 
 const resolved = resolve(doc, data, new TsExpressionEngine());

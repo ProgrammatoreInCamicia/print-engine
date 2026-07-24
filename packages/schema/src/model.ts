@@ -33,6 +33,7 @@ export interface FieldNode {
     prefix?: string;
     suffix?: string;
     style?: Style;
+    format?: string
 }
 
 export interface StackNode {

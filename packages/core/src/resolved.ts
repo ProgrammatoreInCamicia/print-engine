@@ -22,6 +22,42 @@ export interface ResolvedDocument {
   footer?: ResolvedNode;
 }
 
+export function applyFormat(value: Json, format: string | undefined): string {
+  if (value == null) return '';
+  
+  if (format != null) {
+    const splitRes = format.split(':');
+    const formatType = splitRes[0];
+    const formatPattern = splitRes[1];
+    switch (formatType) {
+      case 'number': {
+        const decimals = formatPattern?.includes('.')
+          ? formatPattern.split('.')[1]!.length
+          : 0;
+        const num = Number(value);
+        return Number.isNaN(num) 
+          ? String(value) 
+          : new Intl.NumberFormat('it-IT', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+          }).format(num);
+      }
+      case 'date': {
+        const d = new Date(String(value));
+        if (Number.isNaN(d.getTime())) return String(value);  // data is not valid
+        const dd = String(d.getDate()).padStart(2, '0');
+        const MM = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = String(d.getFullYear());
+        return (formatPattern ?? 'dd/MM/yyyy')
+          .replace('yyyy', yyyy)
+          .replace('dd', dd)
+          .replace('MM', MM);
+      }
+    }
+  }
+  return String(value);
+}
+
 function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): ResolvedNode {
   switch (node.type) {
     case 'text':
@@ -43,7 +79,7 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
     case 'field': {
       const r = engine.evaluate(node.bind, ctx);
       const raw = r.ok ? r.value : null;
-      const text = raw == null ? '' : String(raw);
+      const text = applyFormat(raw, node.format);
       return {
         kind: 'text',
         value: (node.prefix ?? '') + text + (node.suffix ?? ''),
