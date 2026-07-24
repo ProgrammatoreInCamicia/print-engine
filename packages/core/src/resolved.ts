@@ -36,8 +36,8 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
         kind: 'block',
         direction: node.direction ?? 'column',
         style: node.style,
-        breakInside: undefined, // TODO i hasn't this info
-        keepWithNext: undefined, // TODO i hasn't this info
+        breakInside: node.breakInside,
+        keepWithNext: node.keepWithNext,
         children: node.children.map(c => resolveNode(c, ctx, engine))
       };
     case 'field': {
@@ -56,7 +56,14 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
       const children = Array.isArray(data) 
         ? data.map(el => resolveNode(node.template, { ...ctx, item: el }, engine))
         : [];
-      return { kind: 'block', direction: 'column', style: node.style, children };
+      return { 
+        kind: 'block', 
+        direction: 'column', 
+        style: node.style, 
+        children,
+        breakInside: node.breakInside,
+        keepWithNext: node.keepWithNext,
+      };
     };
     case 'group': {
       const source = engine.evaluate(node.dataSource, ctx);
@@ -94,7 +101,14 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
           );
         }
       });
-      return { kind: 'block', direction: 'column', style: node.style, children };
+      return { 
+        kind: 'block', 
+        direction: 'column', 
+        style: node.style, 
+        children,
+        breakInside: node.breakInside,
+        keepWithNext: node.keepWithNext,
+      };
     };
     case 'canvas':
       return {

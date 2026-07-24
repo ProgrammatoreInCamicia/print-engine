@@ -73,6 +73,7 @@ function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
         detail: {
           type: 'stack',
           direction: 'row',
+          breakInside: 'avoid',
           style: {
             background: '#dce6f2',
             borderBottom: '1px solid #ffffff',

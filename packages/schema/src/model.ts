@@ -40,6 +40,8 @@ export interface StackNode {
     direction?: "column" | "row";
     children: Node[];
     style?: Style;
+    breakInside?: 'auto' | 'avoid';
+    keepWithNext?: boolean;
 }
 
 export interface RepeatNode {
@@ -47,6 +49,8 @@ export interface RepeatNode {
     dataSource: Expr;
     template: Node;
     style?: Style;
+    breakInside?: 'auto' | 'avoid';
+    keepWithNext?: boolean;
 }
 
 export interface GroupNode {
@@ -57,6 +61,8 @@ export interface GroupNode {
     groupHeader?: Node;
     groupFooter?: Node;
     style?: Style;
+    breakInside?: 'auto' | 'avoid';
+    keepWithNext?: boolean;
 }
 
 interface ImageBase {

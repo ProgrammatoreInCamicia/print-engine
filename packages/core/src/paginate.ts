@@ -43,7 +43,7 @@ function manageNode(node: ResolvedNode, pageState: PageState) {
     {
         pageState.place(node, nodeSize);
     } else {
-        if (node.kind === 'block')
+        if (node.kind === 'block' && node.breakInside != 'avoid')
         {
             // can split
             node.children.forEach(child => manageNode(child, pageState))
