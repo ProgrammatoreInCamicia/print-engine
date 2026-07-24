@@ -54,8 +54,8 @@ it('groups records and computes subtotals', () => {
 
   const result = resolve(doc, data, new TsExpressionEngine());
 
-  expect(result.kind).toBe('block');
-  const children = (result as { children: ResolvedNode[] }).children;
+  expect(result.body.kind).toBe('block');
+  const children = (result.body as { children: ResolvedNode[] }).children;
   expect(children).toHaveLength(7);
   expect(children.map(c => (c as { value: string }).value)).toEqual([
     'Line C50',

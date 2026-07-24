@@ -16,6 +16,12 @@ export interface ResolvedPositioned {
   node: ResolvedNode;
 }
 
+export interface ResolvedDocument {
+  header?: ResolvedNode;
+  body: ResolvedNode;
+  footer?: ResolvedNode;
+}
+
 function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): ResolvedNode {
   switch (node.type) {
     case 'text':
@@ -131,8 +137,11 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
   }
 }
 
-export function resolve(doc: PrintDocument, data: Json, engine: ExpressionEngine): ResolvedNode {
-  return resolveNode(doc.body, {
-    root: data,
-  }, engine);
+export function resolve(doc: PrintDocument, data: Json, engine: ExpressionEngine): ResolvedDocument {
+  const ctx = { root: data };
+  return {
+    header: doc.regions?.header ? resolveNode(doc.regions.header, ctx, engine): undefined,
+    body: resolveNode(doc.body, ctx, engine),
+    footer: doc.regions?.footer ? resolveNode(doc.regions.footer, ctx, engine) : undefined
+  }
 }

@@ -1,5 +1,5 @@
 import { PageSetup, PrintDocument } from "@print-engine/schema";
-import { ResolvedNode } from "./resolved.js";
+import { ResolvedDocument, ResolvedNode } from "./resolved.js";
 import { Measurer } from "./measure.js";
 
 export interface Page {
@@ -8,7 +8,9 @@ export interface Page {
 }
 
 export interface PaginatedDocument {
+    header?: ResolvedNode;
     pages: Page[];
+    footer?: ResolvedNode;
 }
 
 function getPageArea(page: PageSetup): PageSize {
@@ -60,10 +62,16 @@ function manageNode(node: ResolvedNode, pageState: PageState) {
     }
 }
 
-export function paginate(doc: PrintDocument, resolved: ResolvedNode, measurer: Measurer): PaginatedDocument {
+export function paginate(doc: PrintDocument, resolved: ResolvedDocument, measurer: Measurer): PaginatedDocument {
     const pages: Page[] = [];
 
     const pageArea = getPageArea(doc.page);
+
+    const headerSize = resolved.header ? measurer.measure(resolved.header, pageArea.width) : 0;
+    const footerSize = resolved.footer ? measurer.measure(resolved.footer, pageArea.width) : 0;
+    pageArea.height -= headerSize;
+    pageArea.height -= footerSize;
+
     let remainingHeight = pageArea.height;
 
     let page: Page = {
@@ -73,10 +81,12 @@ export function paginate(doc: PrintDocument, resolved: ResolvedNode, measurer: M
     pages.push(page);
 
     const pageState = new PageState(pages, page, remainingHeight, pageArea.width, measurer, pageArea.height);
-    manageNode(resolved, pageState);
+    manageNode(resolved.body, pageState);
     
     return {
-        pages: pageState.pages
+        header: resolved.header,
+        pages: pageState.pages,
+        footer: resolved.footer
     };
 };
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { paginate } from './paginate.js';
 import { LeafCountMeasurer } from './measure.js';
-import type { ResolvedNode } from './resolved.js';
+import type { ResolvedDocument, ResolvedNode } from './resolved.js';
 import type { PrintDocument } from '@print-engine/schema';
 
 // A4 portrait, margine 15mm → area utile 180 × 267 mm
@@ -15,11 +15,13 @@ function textNode(value: string): ResolvedNode {
   return { kind: 'text', value };
 }
 
-function tree(...values: string[]): ResolvedNode {
+function tree(...values: string[]): ResolvedDocument {
   return {
-    kind: 'block',
-    direction: 'column',
-    children: values.map(textNode),
+    body: {
+      kind: 'block',
+      direction: 'column',
+      children: values.map(textNode),
+    }
   };
 }
 
@@ -95,18 +97,20 @@ describe('paginate', () => {
   });
 
   it('keeps an inner block together when it fits', () => {
-    const nested: ResolvedNode = {
-      kind: 'block',
-      direction: 'column',
-      children: [
-        textNode('a'),
-        {
-          kind: 'block',
-          direction: 'row',
-          children: [textNode('b'), textNode('c')],
-        },
-        textNode('d'),
-      ],
+    const nested: ResolvedDocument = {
+      body: {
+        kind: 'block',
+        direction: 'column',
+        children: [
+          textNode('a'),
+          {
+            kind: 'block',
+            direction: 'row',
+            children: [textNode('b'), textNode('c')],
+          },
+          textNode('d'),
+        ],
+      }
     };
 
     // 4 foglie × 80mm = 320mm > 267 → scende nella radice.

@@ -3,7 +3,6 @@ import { TsExpressionEngine } from '@print-engine/expr';
 import { renderPages, DomMeasurer } from '@print-engine/adapter-html';
 import type { PrintDocument, Node, Style } from '@print-engine/schema';
 
-// Larghezze condivise fra header di tabella e righe di dettaglio.
 const COL = {
   hour: '16mm',
   cadence: '16mm',
@@ -12,7 +11,6 @@ const COL = {
 
 const cellBase: Style = { size: '8pt', align: 'center' };
 
-// Intestazione delle colonne
 const tableHeader: Node = {
   type: 'stack',
   direction: 'row',
@@ -25,7 +23,6 @@ const tableHeader: Node = {
   ],
 };
 
-// Una colonna = direzione + badge linea + corse raggruppate per periodo
 function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
   return {
     type: 'stack',
@@ -97,43 +94,69 @@ function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
 const doc: PrintDocument = {
   schemaVersion: 1,
   page: { size: 'A4', orientation: 'portrait', margin: '10mm' },
+
+  // ─── Header e footer: ripetuti su OGNI pagina ───
+  regions: {
+    header: {
+      type: 'stack',
+      direction: 'column',
+      style: { padding: '0 0 6px 0' },
+      children: [
+        {
+          type: 'field',
+          bind: '$.header.subtitle',
+          style: {
+            background: '#1565a8',
+            color: '#ffffff',
+            weight: 700,
+            size: '11pt',
+            padding: '4px 10px',
+          },
+        },
+        {
+          type: 'field',
+          bind: '$.header.title',
+          style: {
+            background: '#1565a8',
+            color: '#ffffff',
+            weight: 700,
+            size: '26pt',
+            padding: '6px 10px',
+            borderTop: '2px solid #ffffff',
+          },
+        },
+      ],
+    },
+    footer: {
+      type: 'stack',
+      direction: 'column',
+      style: { padding: '8px 0 0 0' },
+      children: [
+        {
+          type: 'field',
+          bind: '$.header.subtitle',
+          style: {
+            background: '#ffff00',
+            color: '#c00000',
+            weight: 700,
+            size: '9pt',
+            padding: '2px 10px',
+            align: 'center',
+          },
+        },
+        { type: 'text', value: 'I BIGLIETTI SONO ACQUISTABILI A BORDO CON UN SOVRAPPREZZO.', style: { size: '7pt', weight: 700 } },
+        { type: 'text', value: 'EINZELFAHRSCHEINE SIND BEIM BUSFAHRER GEGEN AUFPREIS ERHÄLTLICH', style: { size: '7pt', weight: 700 } },
+        { type: 'text', value: 'TICKETS CAN BE BOUGHT ON BOARD, EXTRA CHARGE APPLIED', style: { size: '7pt', weight: 700 } },
+        { type: 'text', value: 'LES TICKETS PEUVENT ÊTRE ACHETÉS À BORD AVEC UN SUPPLÉMENT', style: { size: '7pt', weight: 700 } },
+      ],
+    },
+  },
+
+  // ─── Corpo: quello che si spezza fra le pagine ───
   body: {
     type: 'stack',
     direction: 'column',
     children: [
-      // ─── Testata ───
-      {
-        type: 'stack',
-        direction: 'column',
-        style: { padding: '0 0 10px 0' },
-        children: [
-          {
-            type: 'field',
-            bind: '$.header.subtitle',
-            style: {
-              background: '#1565a8',
-              color: '#ffffff',
-              weight: 700,
-              size: '11pt',
-              padding: '4px 10px',
-            },
-          },
-          {
-            type: 'field',
-            bind: '$.header.title',
-            style: {
-              background: '#1565a8',
-              color: '#ffffff',
-              weight: 700,
-              size: '26pt',
-              padding: '6px 10px',
-              borderTop: '2px solid #ffffff',
-            },
-          },
-        ],
-      },
-
-      // ─── Due colonne affiancate ───
       {
         type: 'stack',
         direction: 'row',
@@ -143,72 +166,56 @@ const doc: PrintDocument = {
           lineColumn('lineB', 'directionB', '#29a3d5'),
         ],
       },
-
-      // ─── Legenda ───
       {
         type: 'stack',
         direction: 'column',
-        style: { padding: '24px 0 0 0' },
+        style: { padding: '10px 0 0 0' },
         children: [
           { type: 'text', value: "(G1) A Como transita nell'ordine da Staz. San Giovanni, P.zza Vittoria, Via Ambrosoli, Giovio, Magistri Comacini.", style: { size: '8pt' } },
           { type: 'text', value: '(73) In arrivo a Como transita da via Piave, via Ambrosoli, V.le G. Cesare, via Milano, Piazza Vittoria, via Battisti, via N. Sauro e Piazza Verdi.', style: { size: '8pt' } },
           { type: 'text', value: '(SCOL) Scolastici dal lunedì al sabato.', style: { size: '8pt' } },
         ],
       },
-
-      // ─── Banda gialla + condizioni ───
-      {
-        type: 'stack',
-        direction: 'column',
-        style: { padding: '16px 0 0 0' },
-        children: [
-          {
-            type: 'field',
-            bind: '$.header.subtitle',
-            style: {
-              background: '#ffff00',
-              color: '#c00000',
-              weight: 700,
-              size: '9pt',
-              padding: '2px 10px',
-              align: 'center',
-            },
-          },
-          { type: 'text', value: 'I BIGLIETTI SONO ACQUISTABILI A BORDO CON UN SOVRAPPREZZO.', style: { size: '8pt', weight: 700 } },
-          { type: 'text', value: 'EINZELFAHRSCHEINE SIND BEIM BUSFAHRER GEGEN AUFPREIS ERHÄLTLICH', style: { size: '8pt', weight: 700 } },
-          { type: 'text', value: 'TICKETS CAN BE BOUGHT ON BOARD, EXTRA CHARGE APPLIED', style: { size: '8pt', weight: 700 } },
-          { type: 'text', value: 'LES TICKETS PEUVENT ÊTRE ACHETÉS À BORD AVEC UN SUPPLÉMENT', style: { size: '8pt', weight: 700 } },
-        ],
-      },
     ],
   },
 };
 
+// Genera N corse per un periodo, così il contenuto sfora la pagina
+function runs(
+  periods: string[],
+  perPeriod: number,
+  baseHour: number,
+  destinations: string[],
+  note: string,
+) {
+  const out: Array<Record<string, string>> = [];
+  for (const period of periods) {
+    for (let i = 0; i < perPeriod; i++) {
+      const h = baseHour + Math.floor(i / 4);
+      const m = (i % 4) * 15;
+      out.push({
+        period,
+        hour: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
+        cadence: i % 3 === 0 ? 'FEST' : 'SCOL',
+        destination: destinations[i % destinations.length]!,
+        note,
+      });
+    }
+  }
+  return out;
+}
+
 const data = {
-  header: { subtitle: 'prova', title: 'COMO - VIA AMBROSOLI' },
+  header: { subtitle: 'GRI_14/03/2022', title: 'COMO - VIA AMBROSOLI' },
   directionA: 'Dir. Lugano - Porlezza - MENAGGIO',
   directionB: 'Dir. Ponzate - Tavernerio - Lipomo - COMO',
   lineA: {
     code: 'C12',
-    runs: [
-      { period: 'test',  hour: '13:10', cadence: 'SCOL', destination: 'MENAGGIO', note: 'G1' },
-      { period: 'test',  hour: '13:15', cadence: 'SCOL', destination: 'CARLAZZO', note: 'G1' },
-      { period: 'test2', hour: '13:10', cadence: 'SCOL', destination: 'MENAGGIO', note: 'G1' },
-      { period: 'test2', hour: '13:15', cadence: 'SCOL', destination: 'CARLAZZO', note: 'G1' },
-      { period: 'test3', hour: '13:10', cadence: 'SCOL', destination: 'MENAGGIO', note: 'G1' },
-      { period: 'test3', hour: '13:15', cadence: 'SCOL', destination: 'CARLAZZO', note: 'G1' },
-    ],
+    runs: runs(['test', 'test2', 'test3', 'test4'], 12, 6, ['MENAGGIO', 'CARLAZZO', 'SAN FERMO'], 'G1'),
   },
   lineB: {
     code: 'C43',
-    runs: [
-      { period: 'test',  hour: '07:37', cadence: 'SCOL', destination: 'COMO', note: '73' },
-      { period: 'test',  hour: '07:42', cadence: 'SCOL', destination: 'COMO', note: '73' },
-      { period: 'test2', hour: '07:37', cadence: 'SCOL', destination: 'COMO', note: '73' },
-      { period: 'test2', hour: '07:42', cadence: 'SCOL', destination: 'COMO', note: '73' },
-      { period: 'test3', hour: '07:37', cadence: 'SCOL', destination: 'COMO', note: '73' },
-      { period: 'test3', hour: '07:42', cadence: 'SCOL', destination: 'COMO', note: '73' },
-    ],
+    runs: runs(['test', 'test2', 'test3', 'test4'], 12, 7, ['COMO', 'SAN FERMO DELLA'], '73'),
   },
 };
 
