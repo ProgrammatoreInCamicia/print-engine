@@ -11,6 +11,9 @@ export interface Style {
     border?: string;
     borderTop?: string;
     borderBottom?: string;
+    gap?: Length;
+    width?: Length;
+    grow?: number;
 }
 
 export type Length = string;

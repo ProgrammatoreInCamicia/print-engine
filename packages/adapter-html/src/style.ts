@@ -15,5 +15,9 @@ export function styleToCss(style: Style | undefined): string {
     styleDeclaration.padding = style.padding ?? '';
     styleDeclaration.fontWeight = (style.weight ?? '') + '';
     styleDeclaration.fontSize = style.size ?? '';
+    styleDeclaration.width = style.width ?? '';
+    styleDeclaration.flexGrow = (style.grow ?? '') + '';
+    styleDeclaration.gap = style.gap ?? '';
+
     return styleDeclaration.cssText;
 }
