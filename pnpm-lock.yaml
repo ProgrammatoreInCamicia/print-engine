@@ -15,6 +15,15 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(vite@8.1.5)
 
+  packages/core:
+    dependencies:
+      '@print-engine/expr':
+        specifier: workspace:*
+        version: link:../expr
+      '@print-engine/schema':
+        specifier: workspace:*
+        version: link:../schema
+
   packages/expr: {}
 
   packages/schema: {}

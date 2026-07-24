@@ -1,0 +1,23 @@
+{
+  "name": "@print-engine/core",
+  "version": "0.0.1",
+  "description": "The renderer-agnostic core: resolves the document tree against data (expanding repeats and groups, evaluating field expressions) and paginates it into an abstract page list. Contains no DOM or renderer-specific code.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@print-engine/schema": "workspace:*",
+    "@print-engine/expr": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "author": "ProgrammatoreInCamicia",
+  "license": "ISC"
+}

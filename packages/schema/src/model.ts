@@ -1,5 +1,18 @@
 export const CURRENT_SCHEMA_VERSION = 1;
 
+export interface Style {
+    font?: string;
+    size?: Length;
+    weight?: number;
+    color?: string;
+    background?: string;
+    align?: 'left' | 'center' | 'right' | 'justify';
+    padding?: Length;
+    border?: string;
+    borderTop?: string;
+    borderBottom?: string;
+}
+
 export type Length = string;
 
 export type Expr = string;
@@ -8,6 +21,7 @@ export interface TextNode {
     type: 'text';
     value: string;
     inline?: boolean;
+    style?: Style;
 }
 
 export interface FieldNode {
@@ -15,18 +29,21 @@ export interface FieldNode {
     bind: Expr;
     prefix?: string;
     suffix?: string;
+    style?: Style;
 }
 
 export interface StackNode {
     type: "stack";
     direction?: "column" | "row";
     children: Node[];
+    style?: Style;
 }
 
 export interface RepeatNode {
     type: "repeat";
     dataSource: Expr;
     template: Node;
+    style?: Style;
 }
 
 export interface GroupNode {
@@ -36,12 +53,14 @@ export interface GroupNode {
     detail: Node;
     groupHeader?: Node;
     groupFooter?: Node;
+    style?: Style;
 }
 
 interface ImageBase {
     type: "image";
     width?: Length;
     height?: Length;
+    style?: Style;
 }
 
 interface ImageSrc extends ImageBase {
@@ -67,6 +86,7 @@ export interface CanvasNode {
     width?: Length;
     height: Length;
     children: PositionedChild[];
+    style?: Style;
 }
 
 export type Node =
