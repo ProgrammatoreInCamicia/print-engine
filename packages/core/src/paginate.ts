@@ -35,25 +35,34 @@ export function getPageSize(page: PageSetup): PageSize {
     return pageSize;
 }
 
-function flatten(node: ResolvedNode): ResolvedNode[] {
-    switch (node.kind) {
-        case 'text':
-            return [node];
-        case 'canvas':
-            return [node];
-        case 'image':
-            return [node];
-        case 'block':
-            return node.children.flatMap(x => flatten(x));    
-        default:
-            throw new Error(`unhandled node type`);
+function manageNode(node: ResolvedNode, pageState: PageState) {
+    const nodeSize = pageState.measurer.measure(node, pageState.pageWidth);
+    if (nodeSize <= pageState.remainingHeight)
+    {
+        pageState.place(node, nodeSize);
+    } else {
+        if (node.kind === 'block')
+        {
+            // can split
+            node.children.forEach(child => manageNode(child, pageState))
+        } else {
+            // cannot be splitte
+            if (pageState.page.nodes.length === 0)
+            {
+                // must add
+                pageState.place(node, nodeSize);
+            } else {
+                // go next page
+                pageState.startNewPage();
+                pageState.place(node, nodeSize);
+            }
+        }
     }
 }
 
 export function paginate(doc: PrintDocument, resolved: ResolvedNode, measurer: Measurer): PaginatedDocument {
     const pages: Page[] = [];
 
-    const flattenNodes = flatten(resolved);
     const pageArea = getPageArea(doc.page);
     let remainingHeight = pageArea.height;
 
@@ -63,28 +72,38 @@ export function paginate(doc: PrintDocument, resolved: ResolvedNode, measurer: M
     }
     pages.push(page);
 
-    flattenNodes.forEach(node => {
-        const nodeSize = measurer.measure(node, pageArea.width);
-
-        if (nodeSize <= remainingHeight || page.nodes.length === 0)
-        {
-            page.nodes.push(node);
-            remainingHeight -= nodeSize;
-        } else {
-            page = {
-                nodes: [node],
-                pageNumber: page.pageNumber + 1
-            };
-            pages.push(page);
-            remainingHeight = pageArea.height - nodeSize;
-        }
-    })
-    
+    const pageState = new PageState(pages, page, remainingHeight, pageArea.width, measurer, pageArea.height);
+    manageNode(resolved, pageState);
     
     return {
-        pages
+        pages: pageState.pages
     };
 };
+
+class PageState {
+    constructor(
+        public pages: Page[],
+        public page: Page,
+        public remainingHeight: number,
+        public readonly pageWidth: number,
+        public readonly measurer: Measurer,
+        public readonly pageAreaHeight: number,
+    ) {}
+
+    startNewPage() {
+        this.page = {
+            nodes: [],
+            pageNumber: this.page.pageNumber + 1,
+        };
+        this.remainingHeight = this.pageAreaHeight;
+        this.pages.push(this.page);
+    }
+
+    place(node: ResolvedNode, height: number) {
+        this.page.nodes.push(node);
+        this.remainingHeight -= height;
+    }
+}
 
 export interface PageSize { width: number; height: number };
 

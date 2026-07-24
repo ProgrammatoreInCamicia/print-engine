@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { paginate } from './paginate.js';
-import { StubMeasurer } from './measure.js';
+import { LeafCountMeasurer } from './measure.js';
 import type { ResolvedNode } from './resolved.js';
 import type { PrintDocument } from '@print-engine/schema';
 
-// A4 portrait con margine 15mm → area utile 180 × 267 mm
+// A4 portrait, margine 15mm → area utile 180 × 267 mm
 const doc: PrintDocument = {
   schemaVersion: 1,
   page: { size: 'A4', orientation: 'portrait', margin: '15mm' },
@@ -23,23 +23,30 @@ function tree(...values: string[]): ResolvedNode {
   };
 }
 
+function valuesOf(nodes: ResolvedNode[]): string[] {
+  return nodes.flatMap((n) =>
+    n.kind === 'block' ? valuesOf(n.children) : [(n as { value: string }).value],
+  );
+}
+
 describe('paginate', () => {
-  it('puts everything on one page when it fits', () => {
-    // 3 nodi × 50mm = 150mm, ci stanno in 267mm
-    const result = paginate(doc, tree('a', 'b', 'c'), new StubMeasurer(50));
+  it('keeps the whole tree on one page when it fits', () => {
+    // 3 foglie × 50mm = 150mm ≤ 267mm → il blocco radice entra intero
+    const result = paginate(doc, tree('a', 'b', 'c'), new LeafCountMeasurer(50));
 
     expect(result.pages).toHaveLength(1);
-    expect(result.pages[0]!.nodes).toHaveLength(3);
+    expect(result.pages[0]!.nodes).toHaveLength(1);
+    expect(result.pages[0]!.nodes[0]!.kind).toBe('block');
     expect(result.pages[0]!.pageNumber).toBe(1);
   });
 
-  it('splits across pages when content overflows', () => {
-    // 100mm per nodo → 2 nodi per pagina (200 ok, 300 no)
-    // 5 nodi → pagine da 2, 2, 1
+  it('descends into the tree when the whole block does not fit', () => {
+    // 5 foglie × 100mm = 500mm > 267mm → scende nei figli
+    // 2 foglie per pagina (200 ok, 300 no) → 2, 2, 1
     const result = paginate(
       doc,
       tree('a', 'b', 'c', 'd', 'e'),
-      new StubMeasurer(100),
+      new LeafCountMeasurer(100),
     );
 
     expect(result.pages).toHaveLength(3);
@@ -50,7 +57,7 @@ describe('paginate', () => {
     const result = paginate(
       doc,
       tree('a', 'b', 'c', 'd', 'e'),
-      new StubMeasurer(100),
+      new LeafCountMeasurer(100),
     );
 
     expect(result.pages.map((p) => p.pageNumber)).toEqual([1, 2, 3]);
@@ -60,29 +67,26 @@ describe('paginate', () => {
     const result = paginate(
       doc,
       tree('a', 'b', 'c', 'd', 'e'),
-      new StubMeasurer(100),
+      new LeafCountMeasurer(100),
     );
 
-    const values = result.pages.flatMap((p) =>
-      p.nodes.map((n) => (n as { value: string }).value),
-    );
+    const values = result.pages.flatMap((p) => valuesOf(p.nodes));
     expect(values).toEqual(['a', 'b', 'c', 'd', 'e']);
   });
 
-  it('returns a single empty page for empty content', () => {
-    const result = paginate(doc, tree(), new StubMeasurer(50));
+  it('returns a single page for empty content', () => {
+    // blocco vuoto → 0 foglie → altezza 0 → entra nella pagina 1
+    const result = paginate(doc, tree(), new LeafCountMeasurer(50));
 
     expect(result.pages).toHaveLength(1);
-    expect(result.pages[0]!.nodes).toEqual([]);
   });
 
-  it('places an oversized node on its own page without looping', () => {
-    // nodo da 400mm su pagina da 267mm: non ci sta mai,
-    // ma deve finire comunque su una pagina
+  it('places an oversized leaf on its own page without looping', () => {
+    // ogni foglia è 400mm > 267mm: nessuna ci sta, ma non deve ciclare
     const result = paginate(
       doc,
       tree('big', 'after'),
-      new StubMeasurer(400),
+      new LeafCountMeasurer(400),
     );
 
     expect(result.pages).toHaveLength(2);
@@ -90,7 +94,7 @@ describe('paginate', () => {
     expect(result.pages[1]!.nodes).toHaveLength(1);
   });
 
-  it('flattens nested blocks before paginating', () => {
+  it('keeps an inner block together when it fits', () => {
     const nested: ResolvedNode = {
       kind: 'block',
       direction: 'column',
@@ -105,15 +109,19 @@ describe('paginate', () => {
       ],
     };
 
-    const result = paginate(doc, nested, new StubMeasurer(50));
+    // 4 foglie × 80mm = 320mm > 267 → scende nella radice.
+    // 'a' (80) entra, il block [b,c] (160) entra → 240,
+    // 'd' (80) non entra → seconda pagina.
+    const result = paginate(doc, nested, new LeafCountMeasurer(80));
 
-    // 4 foglie in totale, 50mm ciascuna → tutte in una pagina
-    expect(result.pages).toHaveLength(1);
-    expect(result.pages[0]!.nodes).toHaveLength(4);
+    expect(result.pages).toHaveLength(2);
+    expect(result.pages[0]!.nodes).toHaveLength(2);
+    // il block interno è rimasto UNITO, non spezzato in due foglie
+    expect(result.pages[0]!.nodes[1]!.kind).toBe('block');
+    expect(result.pages[1]!.nodes).toHaveLength(1);
   });
 
   it('accounts for margins in the usable area', () => {
-    // senza margine: 297mm utili → 2 nodi da 140mm ci stanno (280)
     const noMargin: PrintDocument = {
       ...doc,
       page: { size: 'A4', orientation: 'portrait' },
@@ -123,11 +131,14 @@ describe('paginate', () => {
       page: { size: 'A4', orientation: 'portrait', margin: '20mm' },
     };
 
-    const a = paginate(noMargin, tree('x', 'y'), new StubMeasurer(140));
-    const b = paginate(withMargin, tree('x', 'y'), new StubMeasurer(140));
+    // 2 foglie × 140mm = 280mm
+    // senza margine: 297mm utili → ci sta tutto in una pagina
+    // con margine 20mm: 257mm utili → serve scendere e spezzare
+    const a = paginate(noMargin, tree('x', 'y'), new LeafCountMeasurer(140));
+    const b = paginate(withMargin, tree('x', 'y'), new LeafCountMeasurer(140));
 
-    expect(a.pages).toHaveLength(1);   // 280 <= 297
-    expect(b.pages).toHaveLength(2);   // 280 > 257
+    expect(a.pages).toHaveLength(1);
+    expect(b.pages).toHaveLength(2);
   });
 
   it('respects landscape orientation', () => {
@@ -136,8 +147,8 @@ describe('paginate', () => {
       page: { size: 'A4', orientation: 'landscape', margin: '15mm' },
     };
     // landscape: 297×210 → utile 267×180
-    // 2 nodi da 100mm = 200 > 180 → due pagine
-    const result = paginate(landscape, tree('x', 'y'), new StubMeasurer(100));
+    // 2 foglie × 100mm = 200mm > 180 → due pagine
+    const result = paginate(landscape, tree('x', 'y'), new LeafCountMeasurer(100));
 
     expect(result.pages).toHaveLength(2);
   });
