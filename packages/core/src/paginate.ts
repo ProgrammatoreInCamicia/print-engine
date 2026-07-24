@@ -37,8 +37,14 @@ export function getPageSize(page: PageSetup): PageSize {
     return pageSize;
 }
 
-function manageNode(node: ResolvedNode, pageState: PageState) {
+function manageNode(node: ResolvedNode, next: ResolvedNode | undefined, pageState: PageState) {
     const nodeSize = pageState.measurer.measure(node, pageState.pageWidth);
+    if (node.kind === 'block' && node.keepWithNext && next != null) {
+        const combinedSize = nodeSize + pageState.measurer.measure(next, pageState.pageWidth);
+        if (combinedSize > pageState.remainingHeight && pageState.page.nodes.length > 0) {
+            pageState.startNewPage();
+        }
+    }
     if (nodeSize <= pageState.remainingHeight)
     {
         pageState.place(node, nodeSize);
@@ -46,7 +52,11 @@ function manageNode(node: ResolvedNode, pageState: PageState) {
         if (node.kind === 'block' && node.breakInside != 'avoid')
         {
             // can split
-            node.children.forEach(child => manageNode(child, pageState))
+            for (let i = 0; i < node.children.length; i++) {
+                const child = node.children[i]!;
+                const next = node.children[i + 1];
+                manageNode(child, next, pageState);
+            }
         } else {
             // cannot be splitte
             if (pageState.page.nodes.length === 0)
@@ -81,7 +91,7 @@ export function paginate(doc: PrintDocument, resolved: ResolvedDocument, measure
     pages.push(page);
 
     const pageState = new PageState(pages, page, remainingHeight, pageArea.width, measurer, pageArea.height);
-    manageNode(resolved.body, pageState);
+    manageNode(resolved.body, undefined,pageState);
     
     return {
         header: resolved.header,

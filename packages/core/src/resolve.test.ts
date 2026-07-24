@@ -20,14 +20,16 @@ it('expands a repeat into one node per record', () => {
   const result = resolve(doc, data, new TsExpressionEngine());
 
   expect(result).toEqual({
-    kind: 'block',
-    direction: 'column',
-    style: undefined,
-    children: [
-      { kind: 'text', value: '08:00', style: undefined },
-      { kind: 'text', value: '09:00', style: undefined },
-      { kind: 'text', value: '08:30', style: undefined },
-    ],
+    body: {
+      kind: 'block',
+      direction: 'column',
+      style: undefined,
+      children: [
+        { kind: 'text', value: '08:00', style: undefined },
+        { kind: 'text', value: '09:00', style: undefined },
+        { kind: 'text', value: '08:30', style: undefined },
+      ],
+    },
   });
 });
 
