@@ -1,5 +1,5 @@
 import { ResolvedNode } from '@print-engine/core';
-import { styleToCss } from './style';
+import { styleToCss } from './style.js';
 
 export function renderNode(node: ResolvedNode): string {
     let html: string = '';

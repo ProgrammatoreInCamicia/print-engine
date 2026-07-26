@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PrintDocument } from "@print-engine/schema";
-import { applyFormat, resolve, ResolvedNode, resolveStyle } from "./resolved";
+import { applyFormat, resolve, ResolvedNode, resolveStyle } from "./resolved.js";
 import { EvalContext, TsExpressionEngine } from "@print-engine/expr";
 
 it('expands a repeat into one node per record', () => {

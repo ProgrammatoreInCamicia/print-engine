@@ -1,6 +1,6 @@
 import { getPageSize, PaginatedDocument } from "@print-engine/core";
 import { PageSetup } from "@print-engine/schema";
-import { renderNode } from "./render";
+import { renderNode } from "./render.js";
 
 export function renderPages(doc: PaginatedDocument, pageSetup: PageSetup): string {
     let pages: string = '';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EvalContext, ExpressionEngine } from "./contract.js";
-import { TsExpressionEngine } from "./ts-engine";
+import { TsExpressionEngine } from "./ts-engine.js";
 
 /**
  * Test about contract not for specific implementation

@@ -1,5 +1,5 @@
 import { Measurer, ResolvedNode } from "@print-engine/core";
-import { renderNode } from "./render";
+import { renderNode } from "./render.js";
 
 export class DomMeasurer implements Measurer {
     private div: HTMLDivElement;

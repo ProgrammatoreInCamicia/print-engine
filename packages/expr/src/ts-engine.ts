@@ -1,4 +1,4 @@
-import { EvalContext, EvalResult, ExpressionEngine, Json } from "./contract";
+import { EvalContext, EvalResult, ExpressionEngine, Json } from "./contract.js";
 
 export type Tok =
   | { t: 'num'; v: number }
