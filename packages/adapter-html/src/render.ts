@@ -56,6 +56,16 @@ export function renderNode(node: ResolvedNode): string {
             html += el.outerHTML;
             return html;
         }
+        case 'columns':
+            // Non dovrebbe arrivare qui: paginate() dovrebbe aver già sostituito
+            // ogni nodo 'columns' con block sintetici prima del render.
+            // Rete di sicurezza per evitare un rendering vuoto silenzioso.
+            return renderNode({
+                kind: 'block',
+                direction: 'row',
+                style: node.style,
+                children: node.children,
+            });
         default:
             break;
     }

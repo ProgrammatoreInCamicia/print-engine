@@ -161,9 +161,18 @@ const doc: PrintDocument = {
     type: 'stack',
     direction: 'column',
     children: [
+      // {
+      //   type: 'stack',
+      //   direction: 'row',
+      //   style: { gap: '4mm' },
+      //   children: [
+      //     lineColumn('lineA', 'directionA', '#d2691e'),
+      //     lineColumn('lineB', 'directionB', '#29a3d5'),
+      //   ],
+      // },
       {
-        type: 'stack',
-        direction: 'row',
+        type: 'columns',
+        mode: 'independent',
         style: { gap: '4mm' },
         children: [
           lineColumn('lineA', 'directionA', '#d2691e'),

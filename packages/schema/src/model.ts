@@ -99,6 +99,14 @@ export interface CanvasNode {
     style?: Style;
 }
 
+// 'columns' must be a direct child of a block (e.g. the body's top-level stack), not nested inside intermediate containers — see paginate.ts
+export interface ColumnsNode {
+    type: 'columns';
+    mode: 'independent' | 'newspaper';
+    children: Node[];
+    style?: Style;
+}
+
 export type Node =
   | TextNode
   | FieldNode
@@ -106,7 +114,8 @@ export type Node =
   | RepeatNode
   | GroupNode
   | ImageNode
-  | CanvasNode;
+  | CanvasNode
+  | ColumnsNode;
 
 export interface PageSetup {
     size: "A3" | "A4" | "A5" | "Letter" | "Legal";

@@ -37,7 +37,83 @@ export function getPageSize(page: PageSetup): PageSize {
     return pageSize;
 }
 
+function paginateSubtree(node: ResolvedNode, width: number, height: number, measurer: Measurer): Page[] {
+    const pages: Page[] = [];
+    let page: Page = {
+        nodes: [],
+        pageNumber: 1
+    }
+    pages.push(page);
+
+    const pageState = new PageState(pages, page, height, width, measurer, height);
+    manageNode(node, undefined, pageState);
+
+    return pageState.pages;
+}
+
+function handleColumns(node: ResolvedNode, pageState: PageState) {
+    if (node.kind === 'columns') {
+        if (pageState.page.nodes.length > 0) {
+            // if there are nodes start new page for columns management
+            pageState.startNewPage();
+        }
+        let gap = 0;
+        if (node.style && node.style.gap != null) {
+            // total gap between all children
+            gap = convertMeasureToMm(node.style.gap) * (node.children.length - 1)
+        }
+        const columnWidth = (pageState.pageWidth - gap) / node.children.length;
+        const columnPages = node.children.map(child => {
+            return paginateSubtree(child, columnWidth, pageState.pageAreaHeight, pageState.measurer);
+        });
+
+        const maxPages = Math.max(...columnPages.map(pages => pages.length));
+
+        for (let i = 0; i < maxPages; i++) {
+            const rowChildren: ResolvedNode[] = columnPages.map(pages => ({
+                kind: 'block',
+                direction: 'column',
+                style: { grow: 1, width: '0mm' },
+                children: pages[i]?.nodes ?? [],   // vuoto se questa colonna non ha una pagina i
+            }));
+
+            const columnsRowNode: ResolvedNode = {
+                kind: 'block',
+                direction: 'row',
+                style: node.style,
+                children: rowChildren,
+            };
+
+            if (i > 0) {
+                pageState.startNewPage();
+            }
+
+            // misura il nodo sintetico e piazzalo correttamente,
+            // così remainingHeight riflette lo spazio VERO consumato
+            const rowHeight = pageState.measurer.measure(columnsRowNode, pageState.pageWidth);
+            pageState.place(columnsRowNode, rowHeight);            
+        }
+    }
+}
+
 function manageNode(node: ResolvedNode, next: ResolvedNode | undefined, pageState: PageState) {
+    if (node.kind === 'columns') {
+        handleColumns(node, pageState);
+        return;
+    }
+
+    // Se un block ha un figlio 'columns' diretto, non misurarlo come un tutt'uno:
+    // la misura sarebbe falsata (renderNode non sa disegnare 'columns').
+    // Scendiamo sempre nei figli diretti in questo caso.
+    if (node.kind === 'block' && node.children.some(c => c.kind === 'columns')) {
+        for (let i = 0; i < node.children.length; i++) {
+            const child = node.children[i]!;
+            const childNext = node.children[i + 1];
+            manageNode(child, childNext, pageState);
+        }
+        return;
+    }
+
     const nodeSize = pageState.measurer.measure(node, pageState.pageWidth);
     if (node.kind === 'block' && node.keepWithNext && next != null) {
         const combinedSize = nodeSize + pageState.measurer.measure(next, pageState.pageWidth);
@@ -95,7 +171,12 @@ export function paginate(doc: PrintDocument, resolved: ResolvedDocument, measure
     pages.push(page);
 
     const pageState = new PageState(pages, page, remainingHeight, pageArea.width, measurer, pageArea.height);
-    manageNode(resolved.body, undefined,pageState);
+
+    if (resolved.body.kind === 'columns') {
+        handleColumns(resolved.body, pageState);
+    } else {
+        manageNode(resolved.body, undefined, pageState);
+    }
     
     return {
         header: resolved.header,
