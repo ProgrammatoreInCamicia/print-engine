@@ -51,7 +51,11 @@ function manageNode(node: ResolvedNode, next: ResolvedNode | undefined, pageStat
     } else {
         if (node.kind === 'block' && node.breakInside != 'avoid')
         {
-            // can split
+            // Split: recurse into children so they flow across pages.
+            // LIMITATION: the parent block's own wrapper style (padding, gap,
+            // border, background) is dropped at the split — children are placed
+            // directly onto the pages, so a block that breaks loses its box on
+            // the boundary. Known limitation, see README.
             for (let i = 0; i < node.children.length; i++) {
                 const child = node.children[i]!;
                 const next = node.children[i + 1];

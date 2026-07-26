@@ -42,6 +42,9 @@ export function applyFormat(value: Json, format: string | undefined): string {
             maximumFractionDigits: decimals
           }).format(num);
       }
+      // LIMITATION: naive token replacement — only the dd/MM/yyyy tokens are
+      // recognized (yy, single M/d, and month names are unsupported), and
+      // new Date(String) assumes ISO input; non-ISO strings are unreliable.
       case 'date': {
         const d = new Date(String(value));
         if (Number.isNaN(d.getTime())) return String(value);  // data is not valid
@@ -191,6 +194,10 @@ export function resolveStyle(style: Style | undefined, ctx: EvalContext, engine:
   if (style == null) return;
 
   const resolvedStyle: Style = {...style};
+  // LIMITATION: only *string* style properties can be '=' expressions, and the
+  // evaluated result is always coerced to String. Numeric props (e.g. weight,
+  // grow) are therefore always literal — a data-driven numeric style value is
+  // not supported yet.
   Object.entries(style).forEach(e => {
     const key = e[0] as keyof Style;
     const value = e[1];
