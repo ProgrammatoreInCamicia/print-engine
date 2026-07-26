@@ -65,13 +65,13 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
         kind: 'text',
         value: node.value,
         inline: node.inline,
-        style: node.style,
+        style: resolveStyle(node.style, ctx, engine),
       }
     case 'stack':
       return {
         kind: 'block',
         direction: node.direction ?? 'column',
-        style: node.style,
+        style: resolveStyle(node.style, ctx, engine),
         breakInside: node.breakInside,
         keepWithNext: node.keepWithNext,
         children: node.children.map(c => resolveNode(c, ctx, engine))
@@ -83,7 +83,7 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
       return {
         kind: 'text',
         value: (node.prefix ?? '') + text + (node.suffix ?? ''),
-        style: node.style,
+        style: resolveStyle(node.style, ctx, engine),
       };
     };
     case 'repeat': {
@@ -95,7 +95,7 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
       return { 
         kind: 'block', 
         direction: 'column', 
-        style: node.style, 
+        style: resolveStyle(node.style, ctx, engine),
         children,
         breakInside: node.breakInside,
         keepWithNext: node.keepWithNext,
@@ -140,7 +140,7 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
       return { 
         kind: 'block', 
         direction: 'column', 
-        style: node.style, 
+        style: resolveStyle(node.style, ctx, engine),
         children,
         breakInside: node.breakInside,
         keepWithNext: node.keepWithNext,
@@ -150,7 +150,7 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
       return {
         kind: 'canvas',
         height: node.height,
-        style: node.style,
+        style: resolveStyle(node.style, ctx, engine),
         width: node.width,
         children: node.children.map((c) => {
           return {
@@ -177,7 +177,7 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
         kind: 'image',
         height: node.height,
         width: node.width,
-        style: node.style,
+        style: resolveStyle(node.style, ctx, engine),
         src 
       };
     }
@@ -185,6 +185,29 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
     default:
       throw new Error(`unhandled node type`);
   }
+}
+
+export function resolveStyle(style: Style | undefined, ctx: EvalContext, engine: ExpressionEngine): Style | undefined {
+  if (style == null) return;
+
+  const resolvedStyle: Style = {...style};
+  Object.entries(style).forEach(e => {
+    const key = e[0] as keyof Style;
+    const value = e[1];
+    if (typeof value === 'string' && value.startsWith('=')) {
+      const evaluationValue = value.substring(1, value.length);
+      // need to evaluate
+      const evaluationResult = engine.evaluate(evaluationValue, ctx);
+      if (evaluationResult.ok) {
+        (resolvedStyle as Record<string, unknown>)[key] = String(evaluationResult.value);
+      } else {
+        // not managed
+        delete (resolvedStyle as Record<string, unknown>)[key];
+      }
+    }
+  });
+  
+  return resolvedStyle;
 }
 
 export function resolve(doc: PrintDocument, data: Json, engine: ExpressionEngine): ResolvedDocument {

@@ -61,8 +61,11 @@ function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
         groupHeader: {
           type: 'field',
           bind: '$group.key',
+          // bind: '$group.items[0].color',
+          // prefix: 'DEBUG: ',
           style: {
-            background: '#8db3e2',
+            background: '=$group.items[0].color',
+            // background: '#333333',
             color: '#ffffff',
             weight: 700,
             size: '8pt',
@@ -212,18 +215,21 @@ const doc: PrintDocument = {
 // Genera N corse per un periodo, così il contenuto sfora la pagina
 function runs(
   periods: string[],
+  periodsColors: string[],
   perPeriod: number,
   baseHour: number,
   destinations: string[],
   note: string,
 ) {
   const out: Array<Record<string, string | number>> = [];
+  let periodIndex = 0;
   for (const period of periods) {
     for (let i = 0; i < perPeriod; i++) {
       const h = baseHour + Math.floor(i / 4);
       const m = (i % 4) * 15;
       out.push({
         period,
+        color: String(periodsColors[periodIndex]),
         hour: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
         cadence: i % 3 === 0 ? 'FEST' : 'SCOL',
         destination: destinations[i % destinations.length]!,
@@ -231,6 +237,7 @@ function runs(
         passengers: 10 + (i % 20),
       });
     }
+    periodIndex ++;
   }
   return out;
 }
@@ -241,11 +248,11 @@ const data = {
   directionB: 'Dir. Ponzate - Tavernerio - Lipomo - COMO',
   lineA: {
     code: 'C12',
-    runs: runs(['test', 'test2', 'test3', 'test4'], 12, 6, ['MENAGGIO', 'CARLAZZO', 'SAN FERMO'], 'G1'),
+    runs: runs(['test', 'test2', 'test3', 'test4'], ['#8db3e2', '#e2a8b3', '#e2d68d', 'green'], 12, 6, ['MENAGGIO', 'CARLAZZO', 'SAN FERMO'], 'G1'),
   },
   lineB: {
     code: 'C43',
-    runs: runs(['test', 'test2', 'test3', 'test4'], 12, 7, ['COMO', 'SAN FERMO DELLA'], '73'),
+    runs: runs(['test', 'test2', 'test3', 'test4'],  ['#8db3e2', '#e2a8b3', '#e2d68d', 'green'], 12, 7, ['COMO', 'SAN FERMO DELLA'], '73'),
   },
   meta: { generatedAt: '2026-01-15' },
 };

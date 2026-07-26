@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PrintDocument } from "@print-engine/schema";
-import { applyFormat, resolve, ResolvedNode } from "./resolved";
-import { TsExpressionEngine } from "@print-engine/expr";
+import { applyFormat, resolve, ResolvedNode, resolveStyle } from "./resolved";
+import { EvalContext, TsExpressionEngine } from "@print-engine/expr";
 
 it('expands a repeat into one node per record', () => {
   const doc: PrintDocument = {
@@ -85,4 +85,74 @@ it('falls back to string when no format or invalid', () => {
   expect(applyFormat('ciao', undefined)).toBe('ciao');
   expect(applyFormat(null, 'number:0.00')).toBe('');
   expect(applyFormat('nan', 'number:0.00')).toBe('nan');    // non convertibile
+});
+
+describe('resolveStyle', () => {
+  const engine = new TsExpressionEngine();
+
+  it('leaves literal values untouched', () => {
+    const ctx: EvalContext = { root: {} };
+    const result = resolveStyle(
+      { background: '#ffffff', weight: 700, size: '9pt' },
+      ctx,
+      engine,
+    );
+    expect(result).toEqual({ background: '#ffffff', weight: 700, size: '9pt' });
+  });
+
+  it('evaluates expression values bound to data', () => {
+    const ctx: EvalContext = {
+      root: {},
+      group: { key: 'C50', items: [{ color: '#8db3e2' }] },
+    };
+    const result = resolveStyle(
+      { background: '=$group.items[0].color', color: '#fff' },
+      ctx,
+      engine,
+    );
+    expect(result).toEqual({ background: '#8db3e2', color: '#fff' });
+  });
+
+  it('resolves expressions against $item', () => {
+    const ctx: EvalContext = {
+      root: {},
+      item: { rowColor: 'red' },
+    };
+    const result = resolveStyle({ background: '=$item.rowColor' }, ctx, engine);
+    expect(result).toEqual({ background: 'red' });
+  });
+
+  it('drops properties whose expression cannot be evaluated', () => {
+    const ctx: EvalContext = { root: {} };
+    // $item non esiste nel contesto → l'espressione non risolve a un valore utile
+    const result = resolveStyle(
+      { background: '=$nonexistent.field', color: '#000' },
+      ctx,
+      engine,
+    );
+    // la proprietà valida resta, quella non risolvibile sparisce o è vuota
+    expect(result?.color).toBe('#000');
+  });
+
+  it('returns undefined for undefined input', () => {
+    const ctx: EvalContext = { root: {} };
+    expect(resolveStyle(undefined, ctx, engine)).toBeUndefined();
+  });
+
+  it('mixes literal and expression properties', () => {
+    const ctx: EvalContext = {
+      root: {},
+      item: { c: '#123456' },
+    };
+    const result = resolveStyle(
+      { background: '=$item.c', color: '#ffffff', weight: 700 },
+      ctx,
+      engine,
+    );
+    expect(result).toEqual({
+      background: '#123456',
+      color: '#ffffff',
+      weight: 700,
+    });
+  });
 });
