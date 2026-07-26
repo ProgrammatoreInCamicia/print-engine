@@ -208,3 +208,34 @@ describe('tokenize', () => {
         expect(() => parse('42 43')).toThrow();
     });
 });
+
+/**
+ * Regression: tokenize() does not handle unrecognized characters.
+ *
+ * In the tokenize() while loop, if the current character is not whitespace,
+ * one of the handled symbols (. , ( ) [ ]), a digit, an identifier start,
+ * '$' or a quote, then NO branch advances `i`: the loop spins forever on the
+ * same character. Any operator ('+', '-', '%', ':', '@', ...) hangs the
+ * tokenizer.
+ *
+ * It is a SYNCHRONOUS loop, so the try/catch in evaluate() does NOT catch it:
+ * the thread stays blocked. The explicit per-test timeout below is what turns
+ * the hang into a clean failure (with the 'forks' pool, the supervisor kills
+ * the child process once the timeout elapses).
+ *
+ * With the bug present these tests TIME OUT (red).
+ * After the fix they must return immediately: tokenize must fail in a
+ * controlled way and evaluate must return { ok: false } (green).
+ */
+describe('tokenize — unrecognized characters must not hang', () => {
+    it('evaluate returns ok:false on an unsupported operator instead of looping forever', () => {
+        const r = new TsExpressionEngine().evaluate('$.a + $.b', { root: { a: 1, b: 2 } });
+        expect(r.ok).toBe(false);
+    }, 1000);
+
+    it('tokenize terminates (does not loop) on an unrecognized character', () => {
+        // It must not stay blocked: any controlled outcome is fine
+        // (throwing or emitting a token), what matters is that it RETURNS.
+        expect(() => tokenize('1 % 2')).toThrow();
+    }, 1000);
+});

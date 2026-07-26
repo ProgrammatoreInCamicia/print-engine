@@ -110,6 +110,10 @@ export function tokenize(src: string): Tok[] {
             i = j + 1;
             continue;
         }
+        // Every valid branch above `continue`s; reaching here means an
+        // unrecognized character. Throw instead of spinning forever on the
+        // same index (the ExpressionEngine boundary turns this into ok:false).
+        throw new Error(`unexpected character '${c}' at position ${i}`);
     }
 
     toks.push({ t: 'eof' });
