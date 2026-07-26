@@ -119,21 +119,21 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
       }
       let children: ResolvedNode[] = [];
 
-      mappedGroups.forEach((elements, grounpKey) => {
+      mappedGroups.forEach((elements, groupKey) => {
         if (node.groupHeader != null) {
           children.push(
-            resolveNode(node.groupHeader, {...ctx, group: {key: grounpKey, items: elements}}, engine)
+            resolveNode(node.groupHeader, {...ctx, group: {key: groupKey, items: elements}}, engine)
           );
         }
         // details
         elements.forEach(element => {
           children.push(
-            resolveNode(node.detail, {...ctx, group: {key: grounpKey, items: elements}, item: element}, engine)
+            resolveNode(node.detail, {...ctx, group: {key: groupKey, items: elements}, item: element}, engine)
           );
         });
         if (node.groupFooter != null) {
           children.push(
-            resolveNode(node.groupFooter, {...ctx, group: {key: grounpKey, items: elements}}, engine)
+            resolveNode(node.groupFooter, {...ctx, group: {key: groupKey, items: elements}}, engine)
           );
         }
       });

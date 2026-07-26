@@ -58,7 +58,7 @@ function manageNode(node: ResolvedNode, next: ResolvedNode | undefined, pageStat
                 manageNode(child, next, pageState);
             }
         } else {
-            // cannot be splitte
+            // cannot be split
             if (pageState.page.nodes.length === 0)
             {
                 // must add
@@ -146,9 +146,9 @@ function convertMeasureToMm(measure: string): number {
          * [1] = '12'
          * [2] = 'cm'
          */
-        const convertionValue = measureInMM.get(digitAndMeasure[2] ?? '');
-        if (convertionValue != null) {
-            result = (digitAndMeasure[1] != null ? +digitAndMeasure[1] : 0) * convertionValue;
+        const conversionValue = measureInMM.get(digitAndMeasure[2] ?? '');
+        if (conversionValue != null) {
+            result = (digitAndMeasure[1] != null ? +digitAndMeasure[1] : 0) * conversionValue;
         }
 
     }

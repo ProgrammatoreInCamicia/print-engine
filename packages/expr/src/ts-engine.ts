@@ -182,7 +182,7 @@ class Parser {
                 return { k: 'lit', v: tok.v };
             case 'root':
                 this.next();
-                return this.parsePostFix({ k: 'root', name: tok.v });
+                return this.parsePostfix({ k: 'root', name: tok.v });
             case 'ident':
                 this.next();
                 const newTok = this.peek();
@@ -192,7 +192,7 @@ class Parser {
                     return this.parseCall(tok.v);
                 } else {
                     // it's like root
-                    return this.parsePostFix({
+                    return this.parsePostfix({
                         k: 'member', obj: { k: 'root', name: '$'},
                         name: tok.v
                     });
@@ -202,7 +202,7 @@ class Parser {
         }
     }
 
-    parsePostFix(base: Ast): Ast {
+    parsePostfix(base: Ast): Ast {
         let node = base;
         while(true)
         {

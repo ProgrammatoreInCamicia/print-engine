@@ -9,7 +9,7 @@ const engines: ExpressionEngine[] = [new TsExpressionEngine()];
 
 const ctx: EvalContext = {
     root: {
-        period: 'Gennuary 2026',
+        period: 'January 2026',
         runs: [
             { line: 'C50', hour: '08:00', passengers: 12 },
             { line: 'C50', hour: '09:00', passengers: 8 },
@@ -30,7 +30,7 @@ engines.forEach(engine => {
 
         it('resolve simples path', () => {
             const r = engine.evaluate('$.period', ctx);
-            expect(r).toEqual({ ok: true, value: 'Gennuary 2026' });
+            expect(r).toEqual({ ok: true, value: 'January 2026' });
         });
 
         it('resolve inside path', () => {
