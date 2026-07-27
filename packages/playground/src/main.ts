@@ -25,71 +25,92 @@ const tableHeader: Node = {
 
 function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
   return {
-    type: 'stack',
-    direction: 'column',
-    style: { grow: 1, padding: '0 3px 0 0' },
+    type: 'columns',
+    mode: 'independent',
+    style: { grow: 1, padding: '0 3px 0 0', gap: '4mm' },
     children: [
+      // ─── Colonna sinistra: badge tondo + "bastone" del percorso ───
       {
-        type: 'field',
-        bind: `$.${dirKey}`,
-        style: {
-          background: '#4a86c8',
-          color: '#ffffff',
-          weight: 700,
-          size: '9pt',
-          padding: '2px 6px',
-          align: 'center',
-        },
-      },
-      {
-        type: 'field',
-        bind: `$.${lineKey}.code`,
-        style: {
-          background: badgeColor,
-          color: '#ffffff',
-          weight: 700,
-          size: '20pt',
-          padding: '4px',
-          align: 'center',
-        },
-      },
-      tableHeader,
-      {
-        type: 'group',
-        dataSource: `$.${lineKey}.runs`,
-        groupBy: '$item.period',
-        groupHeader: {
-          type: 'field',
-          bind: '$group.key',
-          // bind: '$group.items[0].color',
-          // prefix: 'DEBUG: ',
-          style: {
-            background: '=$group.items[0].color',
-            // background: '#333333',
-            color: '#ffffff',
-            weight: 700,
-            size: '8pt',
-            padding: '1px 6px',
-            align: 'center',
+        type: 'stack',
+        direction: 'column',
+        style: { width: '24mm' },
+        children: [
+          {
+            type: 'field',
+            bind: `$.${lineKey}.code`,
+            style: {
+              background: badgeColor,
+              color: '#ffffff',
+              weight: 700,
+              size: '20pt',
+              padding: '8px',
+              align: 'center',
+              width: '20mm',
+              borderRadius: '50%',
+            },
           },
-        },
-        detail: {
-          type: 'stack',
-          direction: 'row',
-          breakInside: 'avoid',
-          style: {
-            background: '#dce6f2',
-            borderBottom: '1px solid #ffffff',
-            gap: '1mm',
-            padding: '1px 2px',
+          {
+            type: 'image',
+            src: 'https://tuo-storage/route-line.png',
+            width: '4mm',
+            style: { padding: '8px 0 0 10mm' },
           },
-          children: [
-            { type: 'field', bind: '$item.hour', style: { ...cellBase, width: COL.hour, weight: 700 } },
-            { type: 'field', bind: '$item.cadence', style: { ...cellBase, width: COL.cadence } },
-            { type: 'field', bind: '$item.destination', style: { ...cellBase, grow: 1, weight: 700 } },
-            { type: 'field', bind: '$item.note', style: { ...cellBase, width: COL.note, weight: 700 } },
-          ],
-        },
+        ],
+      },
+      // ─── Colonna destra: direzione + tabella con i gruppi ───
+      {
+        type: 'stack',
+        direction: 'column',
+        style: { grow: 1 },
+        children: [
+          {
+            type: 'field',
+            bind: `$.${dirKey}`,
+            style: {
+              background: '#4a86c8',
+              color: '#ffffff',
+              weight: 700,
+              size: '9pt',
+              padding: '2px 6px',
+              align: 'center',
+            },
+          },
+          tableHeader,
+          {
+            type: 'group',
+            dataSource: `$.${lineKey}.runs`,
+            groupBy: '$item.period',
+            groupHeader: {
+              type: 'field',
+              bind: '$group.key',
+              style: {
+                background: '=$group.items[0].color',
+                color: '#ffffff',
+                weight: 700,
+                size: '8pt',
+                padding: '1px 6px',
+                align: 'center',
+              },
+            },
+            detail: {
+              type: 'stack',
+              direction: 'row',
+              breakInside: 'avoid',
+              style: {
+                background: '#dce6f2',
+                borderBottom: '1px solid #ffffff',
+                gap: '1mm',
+                padding: '1px 2px',
+              },
+              children: [
+                { type: 'field', bind: '$item.hour', style: { ...cellBase, width: COL.hour, weight: 700 } },
+                { type: 'field', bind: '$item.cadence', style: { ...cellBase, width: COL.cadence } },
+                { type: 'field', bind: '$item.destination', style: { ...cellBase, grow: 1, weight: 700 } },
+                { type: 'field', bind: '$item.note', style: { ...cellBase, width: COL.note, weight: 700 } },
+              ],
+            },
+          },
+        ],
       },
     ],
   };

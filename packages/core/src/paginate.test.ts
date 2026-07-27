@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { paginate } from './paginate.js';
+import { Page, paginate, parseHorizontalPadding } from './paginate.js';
 import { LeafCountMeasurer } from './measure.js';
 import type { ResolvedDocument, ResolvedNode } from './resolved.js';
 import type { PrintDocument } from '@print-engine/schema';
@@ -155,5 +155,135 @@ describe('paginate', () => {
     const result = paginate(landscape, tree('x', 'y'), new LeafCountMeasurer(100));
 
     expect(result.pages).toHaveLength(2);
+  });
+});
+
+// Prende solo i wrapper di colonna diretti (i figli del block 'row' sintetico
+// prodotto da handleColumns), non l'intero sottoalbero — evita di raccogliere
+// anche il contenuto originale annidato più in profondità.
+function columnWrapperWidths(page: Page): string[] {
+  const rowNode = page.nodes[0];
+  if (rowNode?.kind !== 'block') return [];
+  return rowNode.children
+    .filter((c): c is Extract<ResolvedNode, { kind: 'block' }> => c.kind === 'block')
+    .map(c => c.style?.width ?? '');
+}
+
+describe('parseHorizontalPadding', () => {
+  it('handles 1 value (all sides)', () => {
+    expect(parseHorizontalPadding('5mm')).toBe(10); // 5 left + 5 right
+  });
+  it('handles 2 values (vertical | horizontal)', () => {
+    expect(parseHorizontalPadding('2mm 5mm')).toBe(10);
+  });
+  it('handles 3 values (top | horizontal | bottom)', () => {
+    expect(parseHorizontalPadding('1mm 5mm 1mm')).toBe(10);
+  });
+  it('handles 4 values (top | right | bottom | left)', () => {
+    expect(parseHorizontalPadding('1mm 3mm 1mm 7mm')).toBe(10);
+  });
+  it('returns 0 for malformed input', () => {
+    expect(parseHorizontalPadding('')).toBe(0);
+  });
+});
+
+describe('paginate columns — width calculation', () => {
+  it('splits width evenly with no fixed columns or padding', () => {
+    const columnsNode: ResolvedNode = {
+      kind: 'columns',
+      children: [
+        { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'a' }] },
+        { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'b' }] },
+      ],
+    };
+    const resolved: ResolvedDocument = { body: columnsNode };
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+
+    // area utile 180mm, 2 colonne flessibili senza gap → 90mm ciascuna
+    expect(columnWrapperWidths(result.pages[0]!)).toEqual(['90mm', '90mm']);
+  });
+
+  it('honors explicit width on one column and gives the rest to the flexible one', () => {
+    const columnsNode: ResolvedNode = {
+      kind: 'columns',
+      children: [
+        { kind: 'block', direction: 'column', style: { width: '24mm' }, children: [{ kind: 'text', value: 'badge' }] },
+        { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'table' }] },
+      ],
+    };
+    const resolved: ResolvedDocument = { body: columnsNode };
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+
+    // 180mm totali: 24mm fissi + 156mm alla colonna flessibile
+    expect(columnWrapperWidths(result.pages[0]!)).toEqual(['24mm', '156mm']);
+  });
+
+  it('subtracts gap between columns before dividing', () => {
+    const columnsNode: ResolvedNode = {
+      kind: 'columns',
+      style: { gap: '4mm' },
+      children: [
+        { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'a' }] },
+        { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'b' }] },
+      ],
+    };
+    const resolved: ResolvedDocument = { body: columnsNode };
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+
+    // 180mm - 4mm gap = 176mm / 2 = 88mm ciascuna
+    expect(columnWrapperWidths(result.pages[0]!)).toEqual(['88mm', '88mm']);
+  });
+
+  it('subtracts container horizontal padding before dividing', () => {
+    const columnsNode: ResolvedNode = {
+      kind: 'columns',
+      style: { padding: '0 3mm 0 3mm' },
+      children: [
+        { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'a' }] },
+        { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'b' }] },
+      ],
+    };
+    const resolved: ResolvedDocument = { body: columnsNode };
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+
+    // 180mm - 6mm padding totale = 174mm / 2 = 87mm ciascuna
+    expect(columnWrapperWidths(result.pages[0]!)).toEqual(['87mm', '87mm']);
+  });
+
+  it('nested columns: widths sum back to the parent column width', () => {
+    // Riproduce il caso reale lineColumn: columns esterno (2 linee)
+    // contenente, in ciascuna colonna, un altro columns (badge + tabella).
+    const innerColumns = (): ResolvedNode => ({
+      kind: 'columns',
+      children: [
+        { kind: 'block', direction: 'column', style: { width: '24mm' }, children: [{ kind: 'text', value: 'badge' }] },
+        { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'table' }] },
+      ],
+    });
+    const outerColumns: ResolvedNode = {
+      kind: 'columns',
+      children: [innerColumns(), innerColumns()],
+    };
+    const resolved: ResolvedDocument = { body: outerColumns };
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+
+    // livello esterno: due wrapper da 90mm ciascuno (180mm / 2)
+    const outerWidths = columnWrapperWidths(result.pages[0]!);
+    expect(outerWidths).toEqual(['90mm', '90mm']);
+
+    // livello interno: dentro il primo wrapper esterno (90mm), il columns
+    // interno è stato trasformato a sua volta in un block 'row' sintetico
+    // con i suoi due wrapper (24mm badge + 66mm tabella).
+    const outerRow = result.pages[0]!.nodes[0];
+    const firstOuterColumn = outerRow?.kind === 'block' ? outerRow.children[0] : undefined;
+    const innerRow = firstOuterColumn?.kind === 'block' ? firstOuterColumn.children[0] : undefined;
+    const innerWidths =
+      innerRow?.kind === 'block'
+        ? innerRow.children
+            .filter((c): c is Extract<ResolvedNode, { kind: 'block' }> => c.kind === 'block')
+            .map(c => c.style?.width ?? '')
+        : [];
+
+    expect(innerWidths).toEqual(['24mm', '66mm']);
   });
 });

@@ -62,18 +62,45 @@ function handleColumns(node: ResolvedNode, pageState: PageState) {
             // total gap between all children
             gap = convertMeasureToMm(node.style.gap) * (node.children.length - 1)
         }
-        const columnWidth = (pageState.pageWidth - gap) / node.children.length;
-        const columnPages = node.children.map(child => {
-            return paginateSubtree(child, columnWidth, pageState.pageAreaHeight, pageState.measurer);
+
+        // Larghezze esplicite dichiarate sui figli (style.width), se presenti.
+        const explicitWidths = node.children.map(child =>
+            child.style?.width != null ? convertMeasureToMm(child.style.width) : null
+        );
+        const fixedWidthTotal = explicitWidths.reduce((sum: number, w) => sum + (w ?? 0), 0);
+        const flexibleCount = explicitWidths.filter(w => w == null).length;
+
+        // Il padding orizzontale del contenitore riduce lo spazio disponibile per
+        // i figli: va scalato prima di dividere, altrimenti (con width rigide) le
+        // colonne sforano il contenitore.
+        const horizontalPadding = node.style?.padding != null
+            ? parseHorizontalPadding(node.style.padding)
+            : 0;
+
+        const remainingWidth = pageState.pageWidth - gap - fixedWidthTotal - horizontalPadding;
+        const flexibleWidth = flexibleCount > 0 ? remainingWidth / flexibleCount : 0;
+
+        const columnWidths = explicitWidths.map(w => w ?? flexibleWidth);
+
+
+        // const columnWidth = (pageState.pageWidth - gap) / node.children.length;
+        const columnPages = node.children.map((child, i) => {
+            return paginateSubtree(child, columnWidths[i]!, pageState.pageAreaHeight, pageState.measurer);
         });
 
         const maxPages = Math.max(...columnPages.map(pages => pages.length));
 
         for (let i = 0; i < maxPages; i++) {
-            const rowChildren: ResolvedNode[] = columnPages.map(pages => ({
+            const rowChildren: ResolvedNode[] = columnPages.map((pages, colIdx) => ({
                 kind: 'block',
                 direction: 'column',
-                style: { grow: 1, width: '0mm' },
+                // Usa la larghezza calcolata (in mm) come width esplicita, sia per
+                // le colonne a larghezza fissa che per quelle flessibili. Non
+                // deleghiamo a flexbox (grow) perché con columns annidate gli item
+                // flex sforano la loro quota (min-width:auto sul contenuto) e le
+                // colonne escono dai limiti di pagina. La misura è solo verticale,
+                // quindi l'overflow orizzontale passerebbe inosservato.
+                style: { width: `${columnWidths[colIdx]}mm` },
                 children: pages[i]?.nodes ?? [],   // vuoto se questa colonna non ha una pagina i
             }));
 
@@ -88,8 +115,6 @@ function handleColumns(node: ResolvedNode, pageState: PageState) {
                 pageState.startNewPage();
             }
 
-            // misura il nodo sintetico e piazzalo correttamente,
-            // così remainingHeight riflette lo spazio VERO consumato
             const rowHeight = pageState.measurer.measure(columnsRowNode, pageState.pageWidth);
             pageState.place(columnsRowNode, rowHeight);            
         }
@@ -239,6 +264,22 @@ function convertMeasureToMm(measure: string): number {
     }
 
     return result;
+}
+
+// Padding orizzontale (left + right) in mm da uno shorthand CSS ('1px 2px',
+// '0 3px 0 0', ...). Segue l'ordine CSS top/right/bottom/left.
+export function parseHorizontalPadding(padding: string): number {
+    const parts = padding.trim().split(/\s+/);
+    let left: string;
+    let right: string;
+    switch (parts.length) {
+        case 1: left = right = parts[0]!; break;            // all sides
+        case 2: left = right = parts[1]!; break;            // vertical | horizontal
+        case 3: left = right = parts[1]!; break;            // top | horizontal | bottom
+        case 4: right = parts[1]!; left = parts[3]!; break; // top | right | bottom | left
+        default: return 0;
+    }
+    return convertMeasureToMm(left) + convertMeasureToMm(right);
 }
 
 // 1in = 96px
