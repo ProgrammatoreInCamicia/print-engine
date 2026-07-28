@@ -1,4 +1,4 @@
-import { PageSetup, PrintDocument } from "@print-engine/schema";
+import { PageSetup, PrintDocument, Style } from "@print-engine/schema";
 import { ResolvedDocument, ResolvedNode } from "./resolved.js";
 import { Measurer } from "./measure.js";
 
@@ -53,70 +53,108 @@ function paginateSubtree(node: ResolvedNode, width: number, height: number, meas
 
 function handleColumns(node: ResolvedNode, pageState: PageState) {
     if (node.kind === 'columns') {
-        if (pageState.page.nodes.length > 0) {
-            // if there are nodes start new page for columns management
-            pageState.startNewPage();
-        }
-        let gap = 0;
-        if (node.style && node.style.gap != null) {
-            // total gap between all children
-            gap = convertMeasureToMm(node.style.gap) * (node.children.length - 1)
-        }
-
-        // Larghezze esplicite dichiarate sui figli (style.width), se presenti.
-        const explicitWidths = node.children.map(child =>
-            child.style?.width != null ? convertMeasureToMm(child.style.width) : null
-        );
-        const fixedWidthTotal = explicitWidths.reduce((sum: number, w) => sum + (w ?? 0), 0);
-        const flexibleCount = explicitWidths.filter(w => w == null).length;
-
-        // Il padding orizzontale del contenitore riduce lo spazio disponibile per
-        // i figli: va scalato prima di dividere, altrimenti (con width rigide) le
-        // colonne sforano il contenitore.
-        const horizontalPadding = node.style?.padding != null
-            ? parseHorizontalPadding(node.style.padding)
-            : 0;
-
-        const remainingWidth = pageState.pageWidth - gap - fixedWidthTotal - horizontalPadding;
-        const flexibleWidth = flexibleCount > 0 ? remainingWidth / flexibleCount : 0;
-
-        const columnWidths = explicitWidths.map(w => w ?? flexibleWidth);
-
-
-        // const columnWidth = (pageState.pageWidth - gap) / node.children.length;
-        const columnPages = node.children.map((child, i) => {
-            return paginateSubtree(child, columnWidths[i]!, pageState.pageAreaHeight, pageState.measurer);
-        });
-
-        const maxPages = Math.max(...columnPages.map(pages => pages.length));
-
-        for (let i = 0; i < maxPages; i++) {
-            const rowChildren: ResolvedNode[] = columnPages.map((pages, colIdx) => ({
-                kind: 'block',
-                direction: 'column',
-                // Usa la larghezza calcolata (in mm) come width esplicita, sia per
-                // le colonne a larghezza fissa che per quelle flessibili. Non
-                // deleghiamo a flexbox (grow) perché con columns annidate gli item
-                // flex sforano la loro quota (min-width:auto sul contenuto) e le
-                // colonne escono dai limiti di pagina. La misura è solo verticale,
-                // quindi l'overflow orizzontale passerebbe inosservato.
-                style: { width: `${columnWidths[colIdx]}mm` },
-                children: pages[i]?.nodes ?? [],   // vuoto se questa colonna non ha una pagina i
-            }));
-
-            const columnsRowNode: ResolvedNode = {
-                kind: 'block',
-                direction: 'row',
-                style: node.style,
-                children: rowChildren,
-            };
-
-            if (i > 0) {
-                pageState.startNewPage();
+        if (node.mode == 'newspaper')
+        {
+            const columns = Array.from({length: node.count!}, () => ({
+                nodes: [],
+                pageNumber: 0
+            } as Page));
+            let gap = 0;
+            if (node.style && node.style.gap != null) {
+                gap = convertMeasureToMm(node.style.gap) * (node.count! - 1);
+            }
+            const width = (pageState.pageWidth - gap) / node.count!;
+            const newspaperState = new NewspaperState(
+                pageState,
+                columns,
+                0,
+                pageState.pages,
+                pageState.remainingHeight,
+                pageState.remainingHeight,
+                pageState.pageAreaHeight,
+                node.count!,
+                width,
+                pageState.measurer,
+                node.style,
+            );
+            for (let i = 0; i < node.children.length; i++) {
+                const child = node.children[i]!;
+                const next = node.children[i + 1];
+                placeInNewspaper(child, next, newspaperState);
             }
 
-            const rowHeight = pageState.measurer.measure(columnsRowNode, pageState.pageWidth);
-            pageState.place(columnsRowNode, rowHeight);            
+            const hasContent = newspaperState.columns.some(col => col.nodes.length > 0);
+            if (hasContent) {
+                newspaperState.freezePage();
+            }
+            
+        } else if (node.mode == 'independent') {
+
+            if (pageState.page.nodes.length > 0) {
+                // if there are nodes start new page for columns management
+                pageState.startNewPage();
+            }
+            let gap = 0;
+            if (node.style && node.style.gap != null) {
+                // total gap between all children
+                gap = convertMeasureToMm(node.style.gap) * (node.children.length - 1)
+            }
+    
+            // Larghezze esplicite dichiarate sui figli (style.width), se presenti.
+            const explicitWidths = node.children.map(child =>
+                child.style?.width != null ? convertMeasureToMm(child.style.width) : null
+            );
+            const fixedWidthTotal = explicitWidths.reduce((sum: number, w) => sum + (w ?? 0), 0);
+            const flexibleCount = explicitWidths.filter(w => w == null).length;
+    
+            // Il padding orizzontale del contenitore riduce lo spazio disponibile per
+            // i figli: va scalato prima di dividere, altrimenti (con width rigide) le
+            // colonne sforano il contenitore.
+            const horizontalPadding = node.style?.padding != null
+                ? parseHorizontalPadding(node.style.padding)
+                : 0;
+    
+            const remainingWidth = pageState.pageWidth - gap - fixedWidthTotal - horizontalPadding;
+            const flexibleWidth = flexibleCount > 0 ? remainingWidth / flexibleCount : 0;
+    
+            const columnWidths = explicitWidths.map(w => w ?? flexibleWidth);
+    
+    
+            // const columnWidth = (pageState.pageWidth - gap) / node.children.length;
+            const columnPages = node.children.map((child, i) => {
+                return paginateSubtree(child, columnWidths[i]!, pageState.pageAreaHeight, pageState.measurer);
+            });
+    
+            const maxPages = Math.max(...columnPages.map(pages => pages.length));
+    
+            for (let i = 0; i < maxPages; i++) {
+                const rowChildren: ResolvedNode[] = columnPages.map((pages, colIdx) => ({
+                    kind: 'block',
+                    direction: 'column',
+                    // Usa la larghezza calcolata (in mm) come width esplicita, sia per
+                    // le colonne a larghezza fissa che per quelle flessibili. Non
+                    // deleghiamo a flexbox (grow) perché con columns annidate gli item
+                    // flex sforano la loro quota (min-width:auto sul contenuto) e le
+                    // colonne escono dai limiti di pagina. La misura è solo verticale,
+                    // quindi l'overflow orizzontale passerebbe inosservato.
+                    style: { width: `${columnWidths[colIdx]}mm` },
+                    children: pages[i]?.nodes ?? [],   // vuoto se questa colonna non ha una pagina i
+                }));
+    
+                const columnsRowNode: ResolvedNode = {
+                    kind: 'block',
+                    direction: 'row',
+                    style: node.style,
+                    children: rowChildren,
+                };
+    
+                if (i > 0) {
+                    pageState.startNewPage();
+                }
+    
+                const rowHeight = pageState.measurer.measure(columnsRowNode, pageState.pageWidth);
+                pageState.place(columnsRowNode, rowHeight);            
+            }
         }
     }
 }
@@ -210,6 +248,40 @@ export function paginate(doc: PrintDocument, resolved: ResolvedDocument, measure
     };
 };
 
+function placeInNewspaper(node: ResolvedNode, next: ResolvedNode | undefined, state: NewspaperState) {
+    const h = state.measurer.measure(node, state.columnWidth);
+
+    // (A) keepWithNext
+    if (node.kind === 'block' && node.keepWithNext && next != null) {
+        const combined = h + state.measurer.measure(next, state.columnWidth);
+        const currentColumnNotEmpty = state.columns[state.columnIndex]!.nodes.length > 0;
+        if (combined > state.remainingHeight && currentColumnNotEmpty) {
+            state.advance();
+        }
+    }
+
+    // (B) ci sta?
+    if (h <= state.remainingHeight) {
+        state.placeInColumn(node, h);
+        return;
+    }
+
+    // (C) spezzabile?
+    if (node.kind === 'block' && node.breakInside !== 'avoid') {
+        for (let i = 0; i < node.children.length; i++) {
+            placeInNewspaper(node.children[i]!, node.children[i + 1], state);
+        }
+        return;
+    }
+
+    // (D) atomico, non ci sta
+    const currentColumnNotEmpty = state.columns[state.columnIndex]!.nodes.length > 0;
+    if (currentColumnNotEmpty) {
+        state.advance();
+    }
+    state.placeInColumn(node, h);   // colonna fresca o vuota: piazza comunque, NIENTE retry
+}
+
 class PageState {
     constructor(
         public pages: Page[],
@@ -232,6 +304,74 @@ class PageState {
     place(node: ResolvedNode, height: number) {
         this.page.nodes.push(node);
         this.remainingHeight -= height;
+    }
+}
+
+class NewspaperState {
+    constructor(
+        public pageState: PageState,
+        public columns: Page[],
+        public columnIndex: number,
+        public pages: Page[],
+        // remaining available height
+        public remainingHeight: number,
+        // first page column height
+        public columnHeight: number,
+        // normal full column height
+        public readonly fullColumnHeight: number,
+        public readonly columnCount: number,
+        public readonly columnWidth: number,
+        public readonly measurer: Measurer,
+        public readonly style?: Style,
+    ) {}
+
+    placeInColumn(node: ResolvedNode, height: number) {
+        this.columns[this.columnIndex]!.nodes.push(node);
+        this.remainingHeight -= height;
+    }
+
+    startNewColumn() {
+        this.columnIndex ++;
+        this.remainingHeight = this.columnHeight;
+    }
+
+    freezePage() {
+        const row: ResolvedNode = {
+            kind: 'block',
+            direction: 'row',
+            children: this.columns.map(col => {
+                const node: ResolvedNode = {
+                    kind: 'block',
+                    children: col.nodes,
+                    direction: 'column',
+                    style: {
+                        width: this.columnWidth + 'mm'
+                    }
+                }
+                return node;
+            }),
+            style: this.style
+        }
+        const rowHeight = this.measurer.measure(row, this.pageState.pageWidth);
+        this.pageState.place(row, rowHeight);
+
+        this.columns = Array.from({ length: this.columnCount }, () => ({
+            pageNumber: 0, // is not usefull in context of column 
+            nodes: [],
+        }));
+
+        this.columnIndex = 0;
+        this.columnHeight = this.fullColumnHeight;
+        this.remainingHeight = this.columnHeight;
+    }
+
+    advance() {
+        if ((this.columnIndex + 1) < this.columnCount) {
+            this.startNewColumn();
+        } else {
+            this.freezePage();
+            this.pageState.startNewPage();
+        }
     }
 }
 

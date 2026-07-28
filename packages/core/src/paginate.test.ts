@@ -191,6 +191,7 @@ describe('paginate columns — width calculation', () => {
   it('splits width evenly with no fixed columns or padding', () => {
     const columnsNode: ResolvedNode = {
       kind: 'columns',
+      mode: 'independent',
       children: [
         { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'a' }] },
         { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'b' }] },
@@ -206,6 +207,7 @@ describe('paginate columns — width calculation', () => {
   it('honors explicit width on one column and gives the rest to the flexible one', () => {
     const columnsNode: ResolvedNode = {
       kind: 'columns',
+      mode: 'independent',
       children: [
         { kind: 'block', direction: 'column', style: { width: '24mm' }, children: [{ kind: 'text', value: 'badge' }] },
         { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'table' }] },
@@ -221,6 +223,7 @@ describe('paginate columns — width calculation', () => {
   it('subtracts gap between columns before dividing', () => {
     const columnsNode: ResolvedNode = {
       kind: 'columns',
+      mode: 'independent',
       style: { gap: '4mm' },
       children: [
         { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'a' }] },
@@ -237,6 +240,7 @@ describe('paginate columns — width calculation', () => {
   it('subtracts container horizontal padding before dividing', () => {
     const columnsNode: ResolvedNode = {
       kind: 'columns',
+      mode: 'independent',
       style: { padding: '0 3mm 0 3mm' },
       children: [
         { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'a' }] },
@@ -255,6 +259,7 @@ describe('paginate columns — width calculation', () => {
     // contenente, in ciascuna colonna, un altro columns (badge + tabella).
     const innerColumns = (): ResolvedNode => ({
       kind: 'columns',
+      mode: 'independent',
       children: [
         { kind: 'block', direction: 'column', style: { width: '24mm' }, children: [{ kind: 'text', value: 'badge' }] },
         { kind: 'block', direction: 'column', children: [{ kind: 'text', value: 'table' }] },
@@ -262,6 +267,7 @@ describe('paginate columns — width calculation', () => {
     });
     const outerColumns: ResolvedNode = {
       kind: 'columns',
+      mode: 'independent',
       children: [innerColumns(), innerColumns()],
     };
     const resolved: ResolvedDocument = { body: outerColumns };
@@ -285,5 +291,115 @@ describe('paginate columns — width calculation', () => {
         : [];
 
     expect(innerWidths).toEqual(['24mm', '66mm']);
+  });
+});
+
+function newspaperColumns(count: number, ...values: string[]): ResolvedNode {
+  return {
+    kind: 'columns',
+    mode: 'newspaper',
+    count,
+    children: values.map(textNode),
+  };
+}
+
+// Estrae, per la prima (e unica) riga di colonne di una pagina, quanti nodi
+// contiene ciascuna colonna — utile per leggere il risultato senza scavare
+// a mano nell'albero ad ogni assert.
+function columnNodeCounts(page: Page): number[] {
+  const row = page.nodes[0];
+  if (row?.kind !== 'block') return [];
+  return row.children.map(col => (col.kind === 'block' ? col.children.length : 0));
+}
+
+function columnValues(page: Page): string[][] {
+  const row = page.nodes[0];
+  if (row?.kind !== 'block') return [];
+  return row.children.map(col =>
+    col.kind === 'block'
+      ? col.children.map(n => (n.kind === 'text' ? n.value : '?'))
+      : [],
+  );
+}
+
+describe('paginate — newspaper columns', () => {
+  it('keeps everything in the first column when it all fits', () => {
+    // 3 foglie x 50mm = 150mm, area utile 267mm, 2 colonne
+    const result = paginate(
+      doc,
+      { body: newspaperColumns(2, 'a', 'b', 'c') } as unknown as ResolvedDocument,
+      new LeafCountMeasurer(50),
+    );
+
+    expect(result.pages).toHaveLength(1);
+    expect(columnNodeCounts(result.pages[0]!)).toEqual([3, 0]);
+    expect(columnValues(result.pages[0]!)[0]).toEqual(['a', 'b', 'c']);
+  });
+
+  it('snakes into the second column when the first is full', () => {
+    const result = paginate(
+      doc,
+      { body: newspaperColumns(2, 'a', 'b', 'c', 'd', 'e') } as unknown as ResolvedDocument,
+      new LeafCountMeasurer(100),
+    );
+
+    expect(result.pages).toHaveLength(2);
+    expect(columnNodeCounts(result.pages[0]!)).toEqual([2, 2]);
+    expect(columnValues(result.pages[0]!)).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
+    expect(columnNodeCounts(result.pages[1]!)).toEqual([1, 0]);
+    expect(columnValues(result.pages[1]!)).toEqual([['e'], []]);
+  });
+
+  it('opens a new page once all columns on the current page are full', () => {
+    
+    // area utile 267mm / 70mm => 3 foglie per colonna (210mm), 6 per pagina.
+    // Rifacciamo il conto con 5 foglie: tutte in pagina 1, non testa il multi-pagina.
+    // Usiamo invece 8 foglie per forzare la seconda pagina.
+    const result2 = paginate(
+      doc,
+      { body: newspaperColumns(2, 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h') } as unknown as ResolvedDocument,
+      new LeafCountMeasurer(70),
+    );
+
+    // per colonna: floor(267/70) = 3 foglie (210mm), 4a foglia (280mm) non ci sta
+    // -> 3 per colonna, 6 per pagina -> 8 foglie: pagina1 = 6, pagina2 = 2
+    expect(result2.pages).toHaveLength(2);
+    expect(columnNodeCounts(result2.pages[0]!)).toEqual([3, 3]);
+    expect(columnNodeCounts(result2.pages[1]!)).toEqual([2, 0]);
+  });
+
+  it('places an oversized leaf on its own column without looping', () => {
+    // ogni foglia è 400mm > 267mm: nessuna colonna la contiene mai per intero,
+    // ma deve finire piazzata comunque, senza ciclare.
+    const result = paginate(
+      doc,
+      { body: newspaperColumns(2, 'big1', 'big2', 'big3') } as unknown as ResolvedDocument,
+      new LeafCountMeasurer(400),
+    );
+
+    // ogni foglia oversize apre la sua colonna/pagina:
+    // big1 -> col0 pag1 (fondo, colonna vuota)
+    // big2 -> non ci sta in col0 (già occupata) -> advance -> col1 pag1 (fondo)
+    // big3 -> non ci sta in col1 (già occupata), niente altra colonna -> freeze -> pag2 col0 (fondo)
+    expect(result.pages).toHaveLength(2);
+    expect(columnNodeCounts(result.pages[0]!)).toEqual([1, 1]);
+    expect(columnNodeCounts(result.pages[1]!)).toEqual([1, 0]);
+  });
+
+  it('flushes the last partially-filled page (tail content is not lost)', () => {
+    // 3 foglie, 2 colonne, ognuna ci sta da sola ma non tutte e tre in una riga:
+    // con foglie piccole (50mm) tutto ci sta in colonna 0 di una pagina sola
+    // -> verifica esplicita che il contenuto finale non sparisca.
+    const result = paginate(
+      doc,
+      { body: newspaperColumns(3, 'only-one') } as unknown as ResolvedDocument,
+      new LeafCountMeasurer(50),
+    );
+
+    expect(result.pages).toHaveLength(1);
+    expect(columnNodeCounts(result.pages[0]!)).toEqual([1, 0, 0]);
   });
 });

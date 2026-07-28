@@ -198,6 +198,13 @@ function validateNode(node: unknown, path: string, issues: ValidationIssue[]): v
                     message: `columns.mode must be one of ${[...COLUMNS_MODES].join(', ')}, got: ${String(node.mode)}`,
                 });
             }
+            if (node.mode === 'newspaper' &&
+                (typeof node.count !== 'number' || node.count < 1)) {
+                issues.push({
+                    path: `${path}.count`,
+                    message: `columns.count is required and must be a positive number when mode is 'newspaper', got: ${String(node.count)}`,
+                });
+            }
             if (!Array.isArray(node.children)) {
                 issues.push({ message: 'The columns node must contain children property', path });
             } else {

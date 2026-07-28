@@ -242,4 +242,61 @@ describe('validateDocument', () => {
         const issues = validateDocument(doc);
         expect(issues).toEqual([]);
     });
+
+    it('Report if a newspaper columns node has no count', () => {
+        const doc = {
+            schemaVersion: 1,
+            page: { size: 'A4' },
+            body: { type: 'columns', mode: 'newspaper', children: [{ type: 'text', value: 'a' }] },
+        };
+        const issues = validateDocument(doc);
+        const issue = issues.find((i) => i.path === '$.body.count');
+        expect(issue).toBeDefined();
+    });
+
+    it('Report if a newspaper columns node has a non-positive count', () => {
+        const doc = {
+            schemaVersion: 1,
+            page: { size: 'A4' },
+            body: { type: 'columns', mode: 'newspaper', count: 0, children: [{ type: 'text', value: 'a' }] },
+        };
+        const issues = validateDocument(doc);
+        const issue = issues.find((i) => i.path === '$.body.count');
+        expect(issue).toBeDefined();
+    });
+
+    it('Pass if a newspaper columns node has a valid count', () => {
+        const doc = {
+            schemaVersion: 1,
+            page: { size: 'A4' },
+            body: {
+                type: 'columns',
+                mode: 'newspaper',
+                count: 3,
+                children: [
+                    { type: 'text', value: 'a' },
+                    { type: 'text', value: 'b' },
+                ],
+            },
+        };
+        const issues = validateDocument(doc);
+        expect(issues).toEqual([]);
+    });
+
+    it('Pass if an independent columns node has no count', () => {
+        const doc = {
+            schemaVersion: 1,
+            page: { size: 'A4' },
+            body: {
+                type: 'columns',
+                mode: 'independent',
+                children: [
+                    { type: 'text', value: 'a' },
+                    { type: 'text', value: 'b' },
+                ],
+            },
+        };
+        const issues = validateDocument(doc);
+        expect(issues).toEqual([]);
+    });
 });

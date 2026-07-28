@@ -4,7 +4,7 @@ import { Node, PrintDocument, Style } from "@print-engine/schema";
 
 export type ResolvedNode =
   | { kind: 'block'; direction: 'column' | 'row'; style?: Style; children: ResolvedNode[]; breakInside?: 'auto' | 'avoid'; keepWithNext?: boolean }
-  | { kind: 'columns'; style?: Style; children: ResolvedNode[]; }
+  | { kind: 'columns'; style?: Style; children: ResolvedNode[]; mode: "independent" | "newspaper", count?: number }
   | { kind: 'canvas'; width?: string; height: string; style?: Style; children: ResolvedPositioned[] }
   | { kind: 'text'; value: string; inline?: boolean; style?: Style }
   | { kind: 'image'; src: string; width?: string; height?: string; style?: Style };
@@ -188,6 +188,8 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
     case 'columns': 
       return {
         kind: 'columns',        // nuovo kind in ResolvedNode
+        mode: node.mode,
+        count: node.count,
         children: node.children.map(c => resolveNode(c, ctx, engine)),
         style: resolveStyle(node.style, ctx, engine),
       };

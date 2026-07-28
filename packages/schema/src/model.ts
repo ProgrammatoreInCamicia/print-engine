@@ -104,6 +104,12 @@ export interface CanvasNode {
 export interface ColumnsNode {
     type: 'columns';
     mode: 'independent' | 'newspaper';
+    /**
+     * Number of columns to snake through. Required and meaningful only when
+     * mode === 'newspaper' — for 'independent' the column count is implicitly
+     * children.length (each child is its own flow). Ignored otherwise.
+     */
+    count?: number;
     children: Node[];
     style?: Style;
 }
