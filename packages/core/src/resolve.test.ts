@@ -156,3 +156,58 @@ describe('resolveStyle', () => {
     });
   });
 });
+
+it('resolves a pivot node into a row × column grid', () => {
+  const doc: PrintDocument = {
+    schemaVersion: 1,
+    page: { size: 'A4' },
+    body: {
+      type: 'pivot',
+      rowSource: '$.rows',
+      columnSource: '$.columns',
+      rowHeader: { type: 'field', bind: '$row.label' },
+      cell: { type: 'field', bind: '$column.values[$row.id]' },
+      rowHeaderWidth: '30mm',
+      columnWidth: '15mm',
+      headers: [
+        {
+          corner: { type: 'text', value: 'corner' },
+          cell: { type: 'field', bind: '$column.label' },
+        },
+      ],
+    },
+  };
+
+  const data = {
+    rows: [
+      { id: 0, label: 'R0' },
+      { id: 1, label: 'R1' },
+    ],
+    columns: [
+      { label: 'C0', values: [10, 11] },
+      { label: 'C1', values: [20, 21] },
+    ],
+  };
+
+  const resolved = resolve(doc, data, new TsExpressionEngine());
+  const pivot = resolved.body;
+
+  expect(pivot.kind).toBe('pivot');
+  if (pivot.kind !== 'pivot') throw new Error('expected pivot');
+
+  // Una banda header, con corner e una cella per colonna.
+  expect(pivot.headers).toHaveLength(1);
+  expect(pivot.headers[0]!.corner).toEqual({ kind: 'text', value: 'corner', style: undefined, inline: undefined });
+  expect(pivot.headers[0]!.cells.map(c => (c.kind === 'text' ? c.value : '?'))).toEqual(['C0', 'C1']);
+
+  // Due righe, ciascuna col proprio header e due celle (una per colonna).
+  expect(pivot.rows).toHaveLength(2);
+
+  const rowLabels = pivot.rows.map(r => (r.header.kind === 'text' ? r.header.value : '?'));
+  expect(rowLabels).toEqual(['R0', 'R1']);
+
+  // riga 0: valori[0] di ciascuna colonna → 10, 20
+  expect(pivot.rows[0]!.cells.map(c => (c.kind === 'text' ? c.value : '?'))).toEqual(['10', '20']);
+  // riga 1: valori[1] di ciascuna colonna → 11, 21
+  expect(pivot.rows[1]!.cells.map(c => (c.kind === 'text' ? c.value : '?'))).toEqual(['11', '21']);
+});

@@ -10,7 +10,7 @@ export type ResolvedNode =
   | { kind: 'image'; src: string; width?: string; height?: string; style?: Style }
   | { kind: 'pivot'; style?: Style; 
       rowHeaderWidth: string; columnWidth: string;
-      headers: { corner: ResolvedNode; cells: ResolvedNode[] }[];
+      headers: { corner?: ResolvedNode; cells: ResolvedNode[] }[];
       rows:    { header: ResolvedNode; cells: ResolvedNode[] }[];
     };
 
@@ -192,12 +192,68 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
     }
     case 'columns': 
       return {
-        kind: 'columns',        // nuovo kind in ResolvedNode
+        kind: 'columns',
         mode: node.mode,
         count: node.count,
         children: node.children.map(c => resolveNode(c, ctx, engine)),
         style: resolveStyle(node.style, ctx, engine),
       };
+    case 'pivot': {
+      const columnSource = engine.evaluate(node.columnSource, ctx);
+      const dataColumn = columnSource.ok ? columnSource.value : [];
+      const rowSource = engine.evaluate(node.rowSource, ctx);
+      const dataRow = rowSource.ok ? rowSource.value : [];
+
+      const headers: {
+        corner?: ResolvedNode;
+        cells: ResolvedNode[];
+      }[] = [];
+      
+      if (Array.isArray(node.headers)) {
+        // has headers
+        node.headers.forEach(band => {
+          const corner = band.corner != null
+            ? resolveNode(band.corner, ctx, engine)
+            : undefined;
+          const cells = Array.isArray(dataColumn) ?
+                      dataColumn.map(column => resolveNode(band.cell, {
+                        ...ctx,
+                        column
+                      }, engine))
+                      : [];
+          headers.push({
+            corner,
+            cells
+          })
+        })
+      }
+
+      const rows: {
+        header: ResolvedNode;
+        cells: ResolvedNode[];
+      }[] = [];
+
+      if (Array.isArray(dataRow)) {
+        dataRow.forEach(row => {
+          const header = resolveNode(node.rowHeader, {...ctx, row: row}, engine);
+          const cells = Array.isArray(dataColumn) ?
+                        dataColumn.map(col => {
+                          return resolveNode(node.cell, {...ctx, row, column: col}, engine)
+                        })
+                        : [];
+          rows.push({header, cells});
+        })
+      }     
+      
+      return {
+        kind: 'pivot',
+        columnWidth: node.columnWidth,
+        rowHeaderWidth: node.rowHeaderWidth,
+        style: resolveStyle(node.style, ctx, engine),
+        headers,
+        rows
+      }
+    }
   
     default:
       throw new Error(`unhandled node type`);
