@@ -10,6 +10,8 @@ export interface EvalContext {
     root: Json;
     item?: Json;
     group?: Json;
+    row?: Json;
+    column?: Json;
     page?: { current: number; total: number };
 }
 

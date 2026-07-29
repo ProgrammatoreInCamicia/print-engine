@@ -19,6 +19,8 @@ const ctx: EvalContext = {
     item: { line: 'C50', hour: '08:00', passengers: 12 },
     group: { key: 'C50', items: [{ passengers: 12 }, { passengers: 8 }] },
     page: { current: 2, total: 5 },
+    row: { name: 'Fermata A', id: 1 },
+    column: { hour: '08:00', id: 3 },
 }
 
 engines.forEach(engine => {
@@ -42,6 +44,8 @@ engines.forEach(engine => {
             expect(engine.evaluate('$item.hour', ctx)).toEqual({ ok: true, value: '08:00' });
             expect(engine.evaluate('$group.key', ctx)).toEqual({ ok: true, value: 'C50' });
             expect(engine.evaluate('$page.current', ctx)).toEqual({ ok: true, value: 2 });
+            expect(engine.evaluate('$column.hour', ctx)).toEqual({ ok: true, value: '08:00' });
+            expect(engine.evaluate('$row.name', ctx)).toEqual({ ok: true, value: 'Fermata A' });
         });
 
         it('resolve pluck', () => {
@@ -78,6 +82,11 @@ engines.forEach(engine => {
             expect(r.ok).toBe(false);
             r = engine.evaluate('SUM(,$)', ctx);
             expect(r.ok).toBe(false);
-        })
-    });    
+        });
+
+        it('resolves row and column together (pivot cell use case)', () => {
+            const r = engine.evaluate("CONCAT($row.name, ' - ', $column.hour)", ctx);
+            expect(r).toEqual({ ok: true, value: 'Fermata A - 08:00' });
+        });
+    });
 }); 

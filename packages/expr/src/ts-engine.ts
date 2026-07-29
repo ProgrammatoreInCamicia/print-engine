@@ -283,6 +283,10 @@ function resolveRoot(name: string, ctx: EvalContext): Json {
             return ctx.item ?? null;
         case '$page':
             return ctx.page ?? null;
+        case '$row':
+            return ctx.row ?? null;
+        case '$column':
+            return ctx.column ?? null;
         case '$':
             return ctx.root;
         default:

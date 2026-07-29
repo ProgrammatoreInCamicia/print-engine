@@ -7,7 +7,12 @@ export type ResolvedNode =
   | { kind: 'columns'; style?: Style; children: ResolvedNode[]; mode: "independent" | "newspaper", count?: number }
   | { kind: 'canvas'; width?: string; height: string; style?: Style; children: ResolvedPositioned[] }
   | { kind: 'text'; value: string; inline?: boolean; style?: Style }
-  | { kind: 'image'; src: string; width?: string; height?: string; style?: Style };
+  | { kind: 'image'; src: string; width?: string; height?: string; style?: Style }
+  | { kind: 'pivot'; style?: Style; 
+      rowHeaderWidth: string; columnWidth: string;
+      headers: { corner: ResolvedNode; cells: ResolvedNode[] }[];
+      rows:    { header: ResolvedNode; cells: ResolvedNode[] }[];
+    };
 
 export interface ResolvedPositioned {
   x: string; 
