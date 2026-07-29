@@ -299,4 +299,103 @@ describe('validateDocument', () => {
         const issues = validateDocument(doc);
         expect(issues).toEqual([]);
     });
+
+    it('Report if a pivot node is missing rowSource/columnSource', () => {
+        const doc = {
+            schemaVersion: 1,
+            page: { size: 'A4' },
+            body: {
+                type: 'pivot',
+                rowHeader: { type: 'text', value: 'row label' },
+                cell: { type: 'text', value: 'x' },
+                rowHeaderWidth: '30mm',
+                columnWidth: '15mm',
+            },
+        };
+        const issues = validateDocument(doc);
+        expect(issues.find(i => i.path === '$.body')).toBeDefined();
+    });
+
+    it('Report if a pivot node has a malformed cell', () => {
+        const doc = {
+            schemaVersion: 1,
+            page: { size: 'A4' },
+            body: {
+                type: 'pivot',
+                rowSource: '$.rows',
+                columnSource: '$.columns',
+                rowHeader: { type: 'text', value: 'row label' },
+                cell: { type: 'banana' },
+                rowHeaderWidth: '30mm',
+                columnWidth: '15mm',
+            },
+        };
+        const issues = validateDocument(doc);
+        const issue = issues.find(i => i.path === '$.body.cell');
+        expect(issue).toBeDefined();
+    });
+
+    it('Report if a header band is missing cell', () => {
+        const doc = {
+            schemaVersion: 1,
+            page: { size: 'A4' },
+            body: {
+                type: 'pivot',
+                rowSource: '$.rows',
+                columnSource: '$.columns',
+                rowHeader: { type: 'text', value: 'row label' },
+                cell: { type: 'text', value: 'x' },
+                rowHeaderWidth: '30mm',
+                columnWidth: '15mm',
+                headers: [{}],
+            },
+        };
+        const issues = validateDocument(doc);
+        const issue = issues.find(i => i.path === '$.body.headers[0]');
+        expect(issue).toBeDefined();
+    });
+
+    it('Report if a header band has a malformed corner', () => {
+        const doc = {
+            schemaVersion: 1,
+            page: { size: 'A4' },
+            body: {
+                type: 'pivot',
+                rowSource: '$.rows',
+                columnSource: '$.columns',
+                rowHeader: { type: 'text', value: 'row label' },
+                cell: { type: 'text', value: 'x' },
+                rowHeaderWidth: '30mm',
+                columnWidth: '15mm',
+                headers: [{ corner: { type: 'banana' }, cell: { type: 'text', value: 'h' } }],
+            },
+        };
+        const issues = validateDocument(doc);
+        const issue = issues.find(i => i.path === '$.body.headers[0].corner');
+        expect(issue).toBeDefined();
+    });
+
+    it('Pass if a pivot node is well formed', () => {
+        const doc = {
+            schemaVersion: 1,
+            page: { size: 'A4' },
+            body: {
+                type: 'pivot',
+                rowSource: '$.rows',
+                columnSource: '$.columns',
+                rowHeader: { type: 'field', bind: '$row.label' },
+                cell: { type: 'field', bind: '$column.values[$row.id]' },
+                rowHeaderWidth: '30mm',
+                columnWidth: '15mm',
+                headers: [
+                    {
+                        corner: { type: 'text', value: '' },
+                        cell: { type: 'field', bind: '$column.label' },
+                    },
+                ],
+            },
+        };
+        const issues = validateDocument(doc);
+        expect(issues).toEqual([]);
+    });
 });

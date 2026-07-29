@@ -6,7 +6,7 @@ export interface ValidationIssue {
 }
 
 const KNOWN_TYPES = new Set([
-  'stack', 'repeat', 'group', 'canvas', 'field', 'text', 'image', 'columns',
+  'stack', 'repeat', 'group', 'canvas', 'field', 'text', 'image', 'columns', 'pivot'
 ]);
 
 const PAGE_SIZES = new Set(['A3', 'A4', 'A5', 'Letter', 'Legal']);
@@ -211,6 +211,58 @@ function validateNode(node: unknown, path: string, issues: ValidationIssue[]): v
                 node.children.forEach((element, i) => {
                     validateNode(element, `${path}.children[${i}]`, issues);
                 });
+            }
+            break;
+        case 'pivot':
+            if (typeof node.rowSource !== 'string') {
+                issues.push({ message: 'The pivot node must contain rowSource property', path });
+            }
+            if (typeof node.columnSource !== 'string') {
+                issues.push({ message: 'The pivot node must contain columnSource property', path });
+            }
+            if (node.rowHeader == null) {
+                issues.push({ message: 'The pivot node must contain rowHeader property', path });
+            } else {
+                validateNode(node.rowHeader, `${path}.rowHeader`, issues);
+            }
+            if (node.cell == null) {
+                issues.push({ message: 'The pivot node must contain cell property', path });
+            } else {
+                validateNode(node.cell, `${path}.cell`, issues);
+            }
+            if (typeof node.rowHeaderWidth !== 'string') {
+                issues.push({ 
+                    message: 'The pivot node must contain rowHeaderWidth property', 
+                    path: `${path}.rowHeaderWidth` 
+                });
+            }
+            if (typeof node.columnWidth !== 'string') {
+                issues.push({ 
+                    message: 'The pivot node must contain columnWidth property', 
+                    path: `${path}.columnWidth` 
+                });
+            }
+            if (node.headers != null) {
+                if (!Array.isArray(node.headers)) {
+                    issues.push({ message: 'The headers node must be an array', path });
+                } else {
+                    node.headers.forEach((element, i) => {
+                        const bandPath = `${path}.headers[${i}]`;
+                        if (!isObject(element)) { 
+                            issues.push({ message: 'The header must be a js object', path: bandPath });
+                            return;
+                        }
+                        if (element.cell == null) {
+                            issues.push({ message: 'The header must contain a cell property', path: bandPath });
+                        } else {
+                            validateNode(element.cell, `${bandPath}.cell`, issues);
+                        }
+                        if (element.corner != null) {
+                            validateNode(element.corner, `${bandPath}.corner`, issues);
+                        }
+                    });
+                }
+
             }
             break;
         default:
