@@ -114,6 +114,30 @@ export interface ColumnsNode {
     style?: Style;
 }
 
+export interface PivotHeaderBand {
+    // corner cell
+    corner?: Node;
+    cell: Node;
+    style?: Style;
+}
+
+export interface PivotNode {
+    type: 'pivot';
+    // source of single row
+    rowSource: Expr;
+    // source of colmns
+    columnSource: Expr;
+    // header of corder
+    rowHeader: Node;
+    headers?: PivotHeaderBand[];
+    cell: Node;
+    rowHeaderWidth: Length;
+    columnWidth: Length;
+    style?: Style;
+    breakInside?: 'auto' | 'avoid';
+    keepWithNext?: boolean;
+}
+
 export type Node =
   | TextNode
   | FieldNode
@@ -122,7 +146,8 @@ export type Node =
   | GroupNode
   | ImageNode
   | CanvasNode
-  | ColumnsNode;
+  | ColumnsNode
+  | PivotNode;
 
 export interface PageSetup {
     size: "A3" | "A4" | "A5" | "Letter" | "Legal";
