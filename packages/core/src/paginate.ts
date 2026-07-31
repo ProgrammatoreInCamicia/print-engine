@@ -37,6 +37,93 @@ export function getPageSize(page: PageSetup): PageSize {
     return pageSize;
 }
 
+function pivotChunkToBlock(
+  pivot: Extract<ResolvedNode, { kind: 'pivot' }>,
+  colStart: number,
+  colEnd: number
+): { header: ResolvedNode; rows: ResolvedNode } {
+    // header
+    const headers = pivot.headers.map(element => {
+        var emptyCorner: ResolvedNode = {
+            kind: 'text',
+            value: ''
+        } 
+        const headerCorner = widthWrap(element.corner ?? emptyCorner, pivot.rowHeaderWidth);
+        const headerCells = element.cells.slice(colStart, colEnd).map(cell => widthWrap(cell, pivot.columnWidth));
+        const header: ResolvedNode = {
+            kind: 'block',
+            direction: 'row',
+            children: [headerCorner, ...headerCells]
+        };
+        return header;
+    });
+    const headersBlock: ResolvedNode = {
+        kind: 'block',
+        direction: 'column',
+        children: headers
+    };
+
+    // rows
+    const rows = pivot.rows.map(row => {
+        
+        const header = widthWrap(row.header, pivot.rowHeaderWidth);
+        const cells = row.cells.slice(colStart, colEnd).map(cell => widthWrap(cell, pivot.columnWidth))
+        const rowNode: ResolvedNode = {
+            kind: 'block',
+            direction: 'row',
+            children: [header, ...cells]
+        };
+        return rowNode;
+    });
+    const rowsBlock: ResolvedNode = {
+        kind: 'block',
+        direction: 'column',
+        children: rows
+    };
+
+    return {
+        header: headersBlock,
+        rows: rowsBlock
+    };
+}
+
+function widthWrap(node: ResolvedNode, width: string): ResolvedNode {
+    return { kind: 'block', direction: 'column', style: { width }, children: [node] };
+}
+
+function handlePivot(node: Extract<ResolvedNode, { kind: 'pivot' }>, pageState: PageState) {
+    const totalCols = node.rows.length > 0
+        ? node.rows[0]!.cells.length
+        : node.headers.length > 0
+            ? node.headers[0]!.cells.length
+            : 0;
+    const colsPerPage = Math.max(1, Math.floor((pageState.pageWidth - convertMeasureToMm(node.rowHeaderWidth)) / convertMeasureToMm(node.columnWidth)));
+    const chunks: Array<{start: number; end: number}> = [];
+    for (let start = 0; start < totalCols; start += colsPerPage) {
+        const end = Math.min(start + colsPerPage, totalCols);
+        chunks.push({ start, end });
+    }
+
+    chunks.forEach((chunk, chunkIndex) => {
+        const {header, rows} = pivotChunkToBlock(node, chunk.start, chunk.end);
+        const chunkWidth = convertMeasureToMm(node.rowHeaderWidth) + (chunk.end - chunk.start) * convertMeasureToMm(node.columnWidth);
+        const headerHeight = pageState.measurer.measure(header, chunkWidth);
+        const pageHeight = pageState.pageAreaHeight - headerHeight; 
+        const pages = paginateSubtree(rows, chunkWidth, pageHeight, pageState.measurer);
+
+        pages.forEach((page, pageIndex) => {
+            if (!(chunkIndex === 0 && pageIndex === 0)) {
+                pageState.startNewPage();
+            }
+            pageState.place(header, headerHeight);
+            page.nodes.forEach(node => {
+                const nodeHeight = pageState.measurer.measure(node, pageState.pageWidth);
+                pageState.place(node, nodeHeight);
+            });
+        });
+    })
+}
+
 function paginateSubtree(node: ResolvedNode, width: number, height: number, measurer: Measurer): Page[] {
     const pages: Page[] = [];
     let page: Page = {
@@ -165,10 +252,15 @@ function manageNode(node: ResolvedNode, next: ResolvedNode | undefined, pageStat
         return;
     }
 
-    // Se un block ha un figlio 'columns' diretto, non misurarlo come un tutt'uno:
-    // la misura sarebbe falsata (renderNode non sa disegnare 'columns').
+    if (node.kind === 'pivot') {
+        handlePivot(node, pageState);
+        return;
+    }
+
+    // Se un block ha un figlio 'columns' o 'pivot' diretto, non misurarlo come un tutt'uno:
+    // la misura sarebbe falsata (renderNode non sa disegnare 'columns' o 'pivot').
     // Scendiamo sempre nei figli diretti in questo caso.
-    if (node.kind === 'block' && node.children.some(c => c.kind === 'columns')) {
+    if (node.kind === 'block' && node.children.some(c => (c.kind === 'columns') || (c.kind === 'pivot'))) {
         for (let i = 0; i < node.children.length; i++) {
             const child = node.children[i]!;
             const childNext = node.children[i + 1];

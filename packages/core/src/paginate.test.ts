@@ -403,3 +403,136 @@ describe('paginate — newspaper columns', () => {
     expect(columnNodeCounts(result.pages[0]!)).toEqual([1, 0, 0]);
   });
 });
+
+function textCell(value: string): ResolvedNode {
+  return { kind: 'text', value };
+}
+
+function makePivot(
+  rowCount: number,
+  colCount: number,
+  rowHeaderWidth: string,
+  columnWidth: string,
+): Extract<ResolvedNode, { kind: 'pivot' }> {
+  return {
+    kind: 'pivot',
+    rowHeaderWidth,
+    columnWidth,
+    headers: [
+      {
+        corner: textCell('corner'),
+        cells: Array.from({ length: colCount }, (_, j) => textCell(`H${j}`)),
+      },
+    ],
+    rows: Array.from({ length: rowCount }, (_, i) => ({
+      header: textCell(`R${i}`),
+      cells: Array.from({ length: colCount }, (_, j) => textCell(`${i}-${j}`)),
+    })),
+  };
+}
+
+// Estrae, da una pagina prodotta dalla paginazione di un pivot, il testo di
+// tutte le foglie in ordine — utile per verificare quali righe/colonne sono
+// finite in quella pagina senza scavare a mano nell'albero sintetico.
+function leafValues(nodes: ResolvedNode[]): string[] {
+  return nodes.flatMap(n => {
+    if (n.kind === 'text') return [n.value];
+    if (n.kind === 'block') return leafValues(n.children);
+    return [];
+  });
+}
+
+describe('paginate — pivot', () => {
+  it('fits everything on one page when columns and rows are few', () => {
+    const pivot = makePivot(2, 2, '20mm', '20mm');
+    const doc: PrintDocument = {
+      schemaVersion: 1,
+      page: { size: 'A4', orientation: 'portrait', margin: '15mm' },
+      body: { type: 'text', value: 'x' },
+    };
+    const resolved: ResolvedDocument = { body: pivot };
+
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+
+    expect(result.pages).toHaveLength(1);
+    const values = leafValues(result.pages[0]!.nodes);
+    // header corner + 2 header cells + 2 righe × (row header + 2 celle dati)
+    expect(values).toEqual(['corner', 'H0', 'H1', 'R0', '0-0', '0-1', 'R1', '1-0', '1-1']);
+  });
+
+  it('splits into horizontal chunks when there are too many columns for the page width', () => {
+    // area utile: 180mm. rowHeaderWidth 20mm, columnWidth 40mm →
+    // colsPerPage = floor((180-20)/40) = 4
+    const pivot = makePivot(1, 6, '20mm', '40mm');
+    const doc: PrintDocument = {
+      schemaVersion: 1,
+      page: { size: 'A4', orientation: 'portrait', margin: '15mm' },
+      body: { type: 'text', value: 'x' },
+    };
+    const resolved: ResolvedDocument = { body: pivot };
+
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+
+    // 6 colonne, 4 per pagina → 2 chunk → (con 1 sola riga, ogni chunk sta
+    // sicuramente in una pagina verticale) → 2 pagine totali
+    expect(result.pages).toHaveLength(2);
+
+    const page1 = leafValues(result.pages[0]!.nodes);
+    const page2 = leafValues(result.pages[1]!.nodes);
+
+    // chunk 0: colonne 0-3
+    expect(page1).toEqual(['corner', 'H0', 'H1', 'H2', 'H3', 'R0', '0-0', '0-1', '0-2', '0-3']);
+    // chunk 1: colonne 4-5 (ultimo chunk, sbilanciato: solo 2 colonne)
+    expect(page2).toEqual(['corner', 'H4', 'H5', 'R0', '0-4', '0-5']);
+  });
+
+  it('splits vertically within a chunk when rows overflow the page height, repeating the header', () => {
+    // area utile 267mm, ogni foglia 'alta' 10 (LeafCountMeasurer conta le foglie).
+    // Una riga = header + 2 celle = 3 foglie = 30 unità. L'header del chunk
+    // (corner + 2 celle header) = 3 foglie = 30 unità.
+    // Con altezza disponibile 267 e 20 righe da 30 ciascuna, non tutte
+    // ci stanno in una pagina: verifichiamo che si spezzi E che l'header
+    // ricompaia in cima alla seconda pagina del chunk.
+    const pivot = makePivot(20, 2, '20mm', '20mm');
+    const doc: PrintDocument = {
+      schemaVersion: 1,
+      page: { size: 'A4', orientation: 'portrait', margin: '15mm' },
+      body: { type: 'text', value: 'x' },
+    };
+    const resolved: ResolvedDocument = { body: pivot };
+
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+
+    expect(result.pages.length).toBeGreaterThan(1);
+
+    // Ogni pagina del chunk deve iniziare con l'header ripetuto ('corner').
+    result.pages.forEach(page => {
+      const values = leafValues(page.nodes);
+      expect(values[0]).toBe('corner');
+    });
+
+    // Nessuna riga persa: raccogliendo tutte le celle 'i-0' su tutte le
+    // pagine, devono esserci tutte le 20 righe, in ordine, senza duplicati.
+    const allValues = result.pages.flatMap(p => leafValues(p.nodes));
+    const rowMarkers = allValues.filter(v => /^\d+-0$/.test(v));
+    expect(rowMarkers).toEqual(Array.from({ length: 20 }, (_, i) => `${i}-0`));
+  });
+
+  it('places an oversized single column without looping', () => {
+    // columnWidth più larga dell'intera area utile: colsPerPage deve
+    // comunque valere 1 (mai 0), altrimenti loop infinito nel calcolo dei chunk.
+    const pivot = makePivot(1, 3, '20mm', '500mm');
+    const doc: PrintDocument = {
+      schemaVersion: 1,
+      page: { size: 'A4', orientation: 'portrait', margin: '15mm' },
+      body: { type: 'text', value: 'x' },
+    };
+    const resolved: ResolvedDocument = { body: pivot };
+
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+
+    // 3 colonne, 1 per chunk (larghezza obbliga colsPerPage=1) → 3 chunk,
+    // ognuno con 1 sola riga → 3 pagine.
+    expect(result.pages).toHaveLength(3);
+  });
+});
