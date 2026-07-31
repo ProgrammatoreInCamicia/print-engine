@@ -66,6 +66,35 @@ export function renderNode(node: ResolvedNode): string {
                 style: node.style,
                 children: node.children,
             });
+        case 'pivot':
+            // Non dovrebbe arrivare qui: paginate() dovrebbe aver già scomposto
+            // ogni 'pivot' in block ordinari prima del render. Rete di sicurezza
+            // per evitare un rendering vuoto silenzioso — disegna l'intera griglia
+            // senza paginazione (nessuno split orizzontale/verticale).
+            const headerRows: ResolvedNode[] = node.headers.map(band => ({
+                kind: 'block',
+                direction: 'row',
+                children: [
+                    { kind: 'block', direction: 'column', style: { width: node.rowHeaderWidth }, children: [band.corner ?? { kind: 'text', value: '' }] },
+                    ...band.cells.map(cell => ({ kind: 'block', direction: 'column', style: { width: node.columnWidth }, children: [cell] } as ResolvedNode)),
+                ],
+            }));
+
+            const dataRows: ResolvedNode[] = node.rows.map(row => ({
+                kind: 'block',
+                direction: 'row',
+                children: [
+                    { kind: 'block', direction: 'column', style: { width: node.rowHeaderWidth }, children: [row.header] },
+                    ...row.cells.map(cell => ({ kind: 'block', direction: 'column', style: { width: node.columnWidth }, children: [cell] } as ResolvedNode)),
+                ],
+            }));
+
+            return renderNode({
+                kind: 'block',
+                direction: 'column',
+                style: node.style,
+                children: [...headerRows, ...dataRows],
+            });
         default:
             break;
     }
