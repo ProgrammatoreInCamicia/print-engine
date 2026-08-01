@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Page, paginate, parseHorizontalPadding } from './paginate.js';
-import { LeafCountMeasurer } from './measure.js';
+import { LeafCountMeasurer, type Measurer } from './measure.js';
 import type { ResolvedDocument, ResolvedNode } from './resolved.js';
 import type { PrintDocument } from '@print-engine/schema';
 
@@ -52,7 +52,10 @@ describe('paginate', () => {
     );
 
     expect(result.pages).toHaveLength(3);
-    expect(result.pages.map((p) => p.nodes.length)).toEqual([2, 2, 1]);
+    // Le foglie restano dentro il block che si sta spezzando (il suo stile
+    // sopravvive allo split), quindi si guarda il contenuto, non i nodi di
+    // primo livello: qui verifichiamo anche *quali* foglie, non solo quante.
+    expect(result.pages.map(p => valuesOf(p.nodes))).toEqual([['a', 'b'], ['c', 'd'], ['e']]);
   });
 
   it('numbers pages sequentially', () => {
@@ -119,10 +122,144 @@ describe('paginate', () => {
     const result = paginate(doc, nested, new LeafCountMeasurer(80));
 
     expect(result.pages).toHaveLength(2);
-    expect(result.pages[0]!.nodes).toHaveLength(2);
+
+    // La radice si spezza, quindi ogni pagina porta il proprio wrapper.
+    const wrapper = result.pages[0]!.nodes[0]!;
+    expect(result.pages[0]!.nodes).toHaveLength(1);
+    expect(wrapper.kind).toBe('block');
+
+    const onFirstPage = wrapper.kind === 'block' ? wrapper.children : [];
+    expect(onFirstPage).toHaveLength(2);
     // il block interno è rimasto UNITO, non spezzato in due foglie
-    expect(result.pages[0]!.nodes[1]!.kind).toBe('block');
-    expect(result.pages[1]!.nodes).toHaveLength(1);
+    expect(onFirstPage[1]!.kind).toBe('block');
+    expect(valuesOf(onFirstPage)).toEqual(['a', 'b', 'c']);
+    expect(valuesOf(result.pages[1]!.nodes)).toEqual(['d']);
+  });
+
+  it('keeps the block wrapper, with its style, on every page it spans', () => {
+    // Regressione: prima i figli finivano nudi in pagina e il riquadro
+    // (sfondo/bordo/padding) non veniva disegnato da nessuna parte.
+    const style = { background: '#eeeeee', border: '1px solid #333' };
+    const resolved: ResolvedDocument = {
+      body: {
+        kind: 'block',
+        direction: 'column',
+        style,
+        children: Array.from({ length: 5 }, (_, i) => textNode(`r${i}`)),
+      },
+    };
+
+    const result = paginate(doc, resolved, new LeafCountMeasurer(100)); // 2 foglie per pagina
+
+    expect(result.pages).toHaveLength(3);
+    result.pages.forEach(page => {
+      expect(page.nodes).toHaveLength(1);
+      expect(page.nodes[0]!.kind).toBe('block');
+      expect(page.nodes[0]!.style).toEqual(style);
+    });
+    expect(result.pages.map(p => valuesOf(p.nodes))).toEqual([['r0', 'r1'], ['r2', 'r3'], ['r4']]);
+  });
+
+  it('preserves the direction of a split block', () => {
+    const resolved: ResolvedDocument = {
+      body: {
+        kind: 'block',
+        direction: 'row',
+        children: Array.from({ length: 3 }, (_, i) => textNode(`c${i}`)),
+      },
+    };
+
+    const result = paginate(doc, resolved, new LeafCountMeasurer(200)); // 1 foglia per pagina
+
+    result.pages.forEach(page => {
+      const wrapper = page.nodes[0]!;
+      expect(wrapper.kind === 'block' ? wrapper.direction : undefined).toBe('row');
+    });
+  });
+
+  it('rebuilds the whole ancestor chain when nested blocks split', () => {
+    const resolved: ResolvedDocument = {
+      body: {
+        kind: 'block',
+        direction: 'column',
+        style: { background: 'outer' },
+        children: [{
+          kind: 'block',
+          direction: 'column',
+          style: { background: 'inner' },
+          children: Array.from({ length: 4 }, (_, i) => textNode(`n${i}`)),
+        }],
+      },
+    };
+
+    const result = paginate(doc, resolved, new LeafCountMeasurer(100)); // 2 foglie per pagina
+
+    expect(result.pages).toHaveLength(2);
+    result.pages.forEach(page => {
+      const outer = page.nodes[0]!;
+      expect(outer.style?.background).toBe('outer');
+      const inner = outer.kind === 'block' ? outer.children[0]! : undefined;
+      expect(inner?.style?.background).toBe('inner'); // anche l'annidato è ricostruito
+    });
+  });
+
+  it('charges the wrapper padding and gap against the page budget', () => {
+    // LeafCountMeasurer ignora padding e gap, quindi non esercita l'overhead
+    // del wrapper: qui usiamo un misuratore che li fa pagare davvero.
+    // Regressione: il controllo di capienza guardava solo l'altezza del figlio
+    // mentre il piazzamento addebitava anche il gap, e la pagina sforava.
+    class PaddedMeasurer implements Measurer {
+      measure(node: ResolvedNode): number {
+        if (node.kind !== 'block') return 10;
+        const own = node.style?.padding != null ? 20 : 0;
+        const gaps = node.style?.gap != null && node.children.length > 1
+          ? (node.children.length - 1) * 5
+          : 0;
+        return own + gaps + node.children.reduce((sum, c) => sum + this.measure(c), 0);
+      }
+    }
+
+    const measurer = new PaddedMeasurer();
+    const resolved: ResolvedDocument = {
+      body: {
+        kind: 'block',
+        direction: 'column',
+        style: { padding: '10mm', gap: '5mm' },
+        children: Array.from({ length: 40 }, (_, i) => textNode(`n${i}`)),
+      },
+    };
+
+    const result = paginate(doc, resolved, measurer);
+
+    // nessuna pagina supera l'area utile (267mm)
+    result.pages.forEach(page => {
+      const height = page.nodes.reduce((sum, n) => sum + measurer.measure(n), 0);
+      expect(height).toBeLessThanOrEqual(267);
+    });
+    // e non si perde nulla per strada
+    expect(result.pages.flatMap(p => valuesOf(p.nodes))).toHaveLength(40);
+  });
+
+  it('leaves no empty wrapper behind when a split lands exactly on a page edge', () => {
+    // 4 foglie da 100: due per pagina, la seconda pagina si riempie esatta.
+    // Non deve restare una terza pagina con un riquadro vuoto.
+    const resolved: ResolvedDocument = {
+      body: {
+        kind: 'block',
+        direction: 'column',
+        style: { background: '#eee' },
+        children: Array.from({ length: 4 }, (_, i) => textNode(`n${i}`)),
+      },
+    };
+
+    const result = paginate(doc, resolved, new LeafCountMeasurer(100));
+
+    expect(result.pages).toHaveLength(2);
+    result.pages.forEach(page => {
+      page.nodes.forEach(n => {
+        expect(n.kind === 'block' ? n.children.length : 1).toBeGreaterThan(0);
+      });
+    });
   });
 
   it('accounts for margins in the usable area', () => {

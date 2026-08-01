@@ -312,29 +312,30 @@ function manageNode(node: ResolvedNode, next: ResolvedNode | undefined, pageStat
     const nodeSize = pageState.measurer.measure(node, pageState.pageWidth);
     if (node.kind === 'block' && node.keepWithNext && next != null) {
         const combinedSize = nodeSize + pageState.measurer.measure(next, pageState.pageWidth);
-        if (combinedSize > pageState.remainingHeight && pageState.page.nodes.length > 0) {
+        if (!pageState.fits(combinedSize) && pageState.hasContent()) {
             pageState.startNewPage();
         }
     }
-    if (nodeSize <= pageState.remainingHeight)
+    if (pageState.fits(nodeSize))
     {
         pageState.place(node, nodeSize);
     } else {
         if (node.kind === 'block' && node.breakInside != 'avoid')
         {
-            // Split: recurse into children so they flow across pages.
-            // LIMITATION: the parent block's own wrapper style (padding, gap,
-            // border, background) is dropped at the split — children are placed
-            // directly onto the pages, so a block that breaks loses its box on
-            // the boundary. Known limitation, see README.
+            // Split: il block non ci sta intero. Ne apriamo un clone vuoto sulla
+            // pagina corrente (e uno identico su ogni pagina successiva), così i
+            // figli restano dentro il loro contenitore: stile e direzione
+            // sopravvivono alla spezzatura invece di essere persi.
+            pageState.openBlock(node);
             for (let i = 0; i < node.children.length; i++) {
                 const child = node.children[i]!;
                 const next = node.children[i + 1];
                 manageNode(child, next, pageState);
             }
+            pageState.closeBlock();
         } else {
             // cannot be split
-            if (pageState.page.nodes.length === 0)
+            if (!pageState.hasContent())
             {
                 // must add
                 pageState.place(node, nodeSize);
@@ -414,7 +415,29 @@ function placeInNewspaper(node: ResolvedNode, next: ResolvedNode | undefined, st
     state.placeInColumn(node, h);   // colonna fresca o vuota: piazza comunque, NIENTE retry
 }
 
+type BlockNode = Extract<ResolvedNode, { kind: 'block' }>;
+
+/**
+ * Un block che si sta spezzando fra più pagine: sulla pagina corrente esiste
+ * un suo clone vuoto che raccoglie i figli man mano che vengono piazzati.
+ */
+interface OpenBlock {
+    /** il clone che raccoglie i figli su QUESTA pagina */
+    wrapper: BlockNode;
+    /** l'array che contiene il wrapper, per poterlo rimuovere se resta vuoto */
+    parent: ResolvedNode[];
+    /** l'originale, per riaprire un clone identico sulla pagina successiva */
+    source: BlockNode;
+    /** altezza del wrapper a vuoto (padding + bordi) */
+    overhead: number;
+    /** gap verticale fra i figli; 0 per i block in riga, dove il gap è orizzontale */
+    gap: number;
+}
+
 class PageState {
+    /** Catena dei block aperti, dal più esterno al più interno. */
+    private openBlocks: OpenBlock[] = [];
+
     constructor(
         public pages: Page[],
         public page: Page,
@@ -424,17 +447,109 @@ class PageState {
         public readonly pageAreaHeight: number,
     ) {}
 
+    /**
+     * C'è già qualcosa di reale su questa pagina? Un wrapper appena aperto e
+     * ancora vuoto non conta: altrimenti si aprirebbe una pagina bianca per far
+     * posto a un nodo che comunque non ci sta.
+     */
+    hasContent(): boolean {
+        if (this.openBlocks.length === 0) return this.page.nodes.length > 0;
+        // qualcosa in pagina oltre alla catena aperta
+        if (this.page.nodes.some(n => n !== this.openBlocks[0]!.wrapper)) return true;
+        // un wrapper con più del solo anello successivo della catena
+        return this.openBlocks.some((open, i) => {
+            const chainLink = i === this.openBlocks.length - 1 ? 0 : 1;
+            return open.wrapper.children.length > chainLink;
+        });
+    }
+
+    /**
+     * Il gap che il PROSSIMO piazzamento pagherà: dentro un block in colonna
+     * con gap, dal secondo figlio in poi. Va incluso nel controllo di capienza,
+     * altrimenti si accetta un figlio che poi costa di più di quanto misurato.
+     */
+    private pendingGap(): number {
+        const open = this.openBlocks[this.openBlocks.length - 1];
+        return open != null && open.wrapper.children.length > 0 ? open.gap : 0;
+    }
+
+    /** Un nodo alto `height` entra nello spazio rimasto, gap incluso? */
+    fits(height: number): boolean {
+        return height + this.pendingGap() <= this.remainingHeight;
+    }
+
+    /**
+     * Apre un clone vuoto di `source` sulla pagina corrente: da qui in poi i
+     * figli piazzati finiscono dentro il clone, non direttamente in pagina.
+     */
+    openBlock(source: BlockNode) {
+        const wrapper: BlockNode = {
+            kind: 'block',
+            direction: source.direction,
+            style: source.style,
+            children: [],
+        };
+        // Il wrapper occupa spazio anche da vuoto (padding, bordi): va scalato
+        // subito, altrimenti il contenuto sfora di quel tanto.
+        const overhead = this.measurer.measure(wrapper, this.pageWidth);
+        const parent = this.openBlocks.length > 0
+            ? this.openBlocks[this.openBlocks.length - 1]!.wrapper.children
+            : this.page.nodes;
+        const gap = source.direction === 'column' && source.style?.gap != null
+            ? convertMeasureToMm(source.style.gap)
+            : 0;
+
+        this.place(wrapper, overhead);
+        this.openBlocks.push({ wrapper, parent, source, overhead, gap });
+    }
+
+    /** Chiude il block più interno, scartandolo se non ha raccolto nulla. */
+    closeBlock() {
+        const open = this.openBlocks.pop();
+        if (open != null && open.wrapper.children.length === 0) {
+            this.discard(open);
+            this.remainingHeight += open.overhead;
+        }
+    }
+
+    private discard(open: OpenBlock) {
+        const index = open.parent.indexOf(open.wrapper);
+        if (index >= 0) open.parent.splice(index, 1);
+    }
+
     startNewPage() {
+        // I wrapper rimasti vuoti sulla pagina che chiudiamo non devono lasciare
+        // scatole fantasma. Dal più interno al più esterno: scartando l'interno
+        // anche l'esterno può restare vuoto a sua volta.
+        for (let i = this.openBlocks.length - 1; i >= 0; i--) {
+            const open = this.openBlocks[i]!;
+            if (open.wrapper.children.length === 0) this.discard(open);
+        }
+
+        const reopen = this.openBlocks.map(open => open.source);
+        this.openBlocks = [];
+
         this.page = {
             nodes: [],
             pageNumber: this.page.pageNumber + 1,
         };
         this.remainingHeight = this.pageAreaHeight;
         this.pages.push(this.page);
+
+        // La stessa catena riparte identica sulla pagina nuova: è questo che
+        // fa sopravvivere il contenitore allo split.
+        reopen.forEach(source => this.openBlock(source));
     }
 
     place(node: ResolvedNode, height: number) {
-        this.page.nodes.push(node);
+        const open = this.openBlocks[this.openBlocks.length - 1];
+        if (open != null) {
+            // il gap si paga dal secondo figlio in poi
+            if (open.wrapper.children.length > 0) this.remainingHeight -= open.gap;
+            open.wrapper.children.push(node);
+        } else {
+            this.page.nodes.push(node);
+        }
         this.remainingHeight -= height;
     }
 }

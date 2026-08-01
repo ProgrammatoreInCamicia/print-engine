@@ -7,10 +7,12 @@ import { pivotData, pivotDoc } from './pivot-data';
 import { type3Data, type3Doc } from './type3';
 
 
+const doc: PrintDocument = pivotDoc();
+const data: Json = pivotData();
 // const doc: PrintDocument = newspaperDoc();
 // const data: Json = newspaperData();
-const doc: PrintDocument = type3Doc();
-const data: Json = type3Data();
+// const doc: PrintDocument = type3Doc();
+// const data: Json = type3Data();
 const resolved = resolve(doc, data, new TsExpressionEngine());
 const paginated = paginate(doc, resolved, new DomMeasurer());
 const output = document.getElementById('output');
