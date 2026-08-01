@@ -53,6 +53,9 @@ function pivotChunkToBlock(
         const header: ResolvedNode = {
             kind: 'block',
             direction: 'row',
+            // Lo stile del pivot veste ogni riga; quello della banda si
+            // sovrappone per la sua sola riga di header.
+            style: { ...pivot.style, ...element.style },
             children: [headerCorner, ...headerCells]
         };
         return header;
@@ -71,6 +74,11 @@ function pivotChunkToBlock(
         const rowNode: ResolvedNode = {
             kind: 'block',
             direction: 'row',
+            // Una riga di tabella è atomica: senza questo manageNode la tratta
+            // come block spezzabile e distribuisce le celle su due pagine,
+            // strappando la riga a metà.
+            breakInside: 'avoid',
+            style: pivot.style,
             children: [header, ...cells]
         };
         return rowNode;
@@ -97,34 +105,66 @@ function handlePivot(node: Extract<ResolvedNode, { kind: 'pivot' }>, pageState: 
         : node.headers.length > 0
             ? node.headers[0]!.cells.length
             : 0;
-    const colsPerPage = Math.max(1, Math.floor((pageState.pageWidth - convertMeasureToMm(node.rowHeaderWidth)) / convertMeasureToMm(node.columnWidth)));
+    // Lo stile del pivot veste ogni riga, quindi il suo gap e il suo padding
+    // orizzontale mangiano larghezza utile: vanno nel conto, altrimenti le
+    // colonne sforano la pagina. Una riga con n celle ha n gap (uno prima di
+    // ogni cella, dopo l'intestazione di riga).
+    const gap = node.style?.gap != null ? convertMeasureToMm(node.style.gap) : 0;
+    const rowPadding = node.style?.padding != null ? parseHorizontalPadding(node.style.padding) : 0;
+    const rowHeaderWidth = convertMeasureToMm(node.rowHeaderWidth);
+    const columnWidth = convertMeasureToMm(node.columnWidth);
+
+    const colsPerPage = Math.max(1, Math.floor((pageState.pageWidth - rowPadding - rowHeaderWidth) / (columnWidth + gap)));
     const chunks: Array<{start: number; end: number}> = [];
     for (let start = 0; start < totalCols; start += colsPerPage) {
         const end = Math.min(start + colsPerPage, totalCols);
         chunks.push({ start, end });
     }
 
-    chunks.forEach((chunk, chunkIndex) => {
-        const {header, rows} = pivotChunkToBlock(node, chunk.start, chunk.end);
-        const chunkWidth = convertMeasureToMm(node.rowHeaderWidth) + (chunk.end - chunk.start) * convertMeasureToMm(node.columnWidth);
-        const headerHeight = pageState.measurer.measure(header, chunkWidth);
-        const pageHeight = pageState.pageAreaHeight - headerHeight; 
-        const pages = paginateSubtree(rows, chunkWidth, pageHeight, pageState.measurer);
+    // La primissima pagina del pivot prosegue su quella corrente (sotto un
+    // eventuale titolo già presente); tutte le altre sono pagine nuove.
+    let isFirstPlacement = true;
 
-        pages.forEach((page, pageIndex) => {
-            if (!(chunkIndex === 0 && pageIndex === 0)) {
+    chunks.forEach(chunk => {
+        const {header, rows} = pivotChunkToBlock(node, chunk.start, chunk.end);
+        const chunkWidth = rowPadding + rowHeaderWidth + (chunk.end - chunk.start) * (columnWidth + gap);
+        const headerHeight = pageState.measurer.measure(header, chunkWidth);
+        const fullPageHeight = pageState.pageAreaHeight - headerHeight;
+
+        // Se proseguiamo sulla pagina corrente, le righe vanno impaginate
+        // sull'altezza ANCORA DISPONIBILE, non su quella piena: altrimenti si
+        // impagina per 267mm e si scrive su una pagina che ne ha molti meno.
+        // Stessa coppia ridotta/piena di NewspaperState (columnHeight/fullColumnHeight).
+        let firstPageHeight = fullPageHeight;
+        if (isFirstPlacement) {
+            firstPageHeight = pageState.remainingHeight - headerHeight;
+            if (firstPageHeight <= 0) {
+                // Non resta spazio nemmeno per l'header: parti da una pagina nuova.
+                pageState.startNewPage();
+                firstPageHeight = fullPageHeight;
+            }
+        }
+
+        const pages = paginateSubtree(rows, chunkWidth, fullPageHeight, pageState.measurer, firstPageHeight);
+
+        pages.forEach(page => {
+            if (!isFirstPlacement) {
                 pageState.startNewPage();
             }
+            isFirstPlacement = false;
             pageState.place(header, headerHeight);
             page.nodes.forEach(node => {
-                const nodeHeight = pageState.measurer.measure(node, pageState.pageWidth);
+                const nodeHeight = pageState.measurer.measure(node, chunkWidth);
                 pageState.place(node, nodeHeight);
             });
         });
     })
 }
 
-function paginateSubtree(node: ResolvedNode, width: number, height: number, measurer: Measurer): Page[] {
+// `firstPageHeight` permette di impaginare la prima pagina con meno spazio
+// delle successive (es. un pivot che prosegue sotto un titolo già presente).
+// Se omesso vale `height`, cioè tutte le pagine hanno la stessa altezza.
+function paginateSubtree(node: ResolvedNode, width: number, height: number, measurer: Measurer, firstPageHeight: number = height): Page[] {
     const pages: Page[] = [];
     let page: Page = {
         nodes: [],
@@ -132,7 +172,7 @@ function paginateSubtree(node: ResolvedNode, width: number, height: number, meas
     }
     pages.push(page);
 
-    const pageState = new PageState(pages, page, height, width, measurer, height);
+    const pageState = new PageState(pages, page, firstPageHeight, width, measurer, height);
     manageNode(node, undefined, pageState);
 
     return pageState.pages;

@@ -10,7 +10,7 @@ export type ResolvedNode =
   | { kind: 'image'; src: string; width?: string; height?: string; style?: Style }
   | { kind: 'pivot'; style?: Style; 
       rowHeaderWidth: string; columnWidth: string;
-      headers: { corner?: ResolvedNode; cells: ResolvedNode[] }[];
+      headers: { corner?: ResolvedNode; cells: ResolvedNode[]; style?: Style }[];
       rows:    { header: ResolvedNode; cells: ResolvedNode[] }[];
     };
 
@@ -207,6 +207,7 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
       const headers: {
         corner?: ResolvedNode;
         cells: ResolvedNode[];
+        style?: Style;
       }[] = [];
       
       if (Array.isArray(node.headers)) {
@@ -223,7 +224,8 @@ function resolveNode(node: Node, ctx: EvalContext, engine: ExpressionEngine): Re
                       : [];
           headers.push({
             corner,
-            cells
+            cells,
+            style: resolveStyle(band.style, ctx, engine)
           })
         })
       }

@@ -442,6 +442,16 @@ function leafValues(nodes: ResolvedNode[]): string[] {
   });
 }
 
+// Raccoglie i blocchi-riga di un pivot impaginato: si ferma al primo block
+// direction:'row' senza scendere nei wrapper di cella (che sono 'column').
+function rowBlocks(nodes: ResolvedNode[]): Extract<ResolvedNode, { kind: 'block' }>[] {
+  return nodes.flatMap(n =>
+    n.kind === 'block'
+      ? (n.direction === 'row' ? [n] : rowBlocks(n.children))
+      : [],
+  );
+}
+
 describe('paginate — pivot', () => {
   it('fits everything on one page when columns and rows are few', () => {
     const pivot = makePivot(2, 2, '20mm', '20mm');
@@ -534,5 +544,105 @@ describe('paginate — pivot', () => {
     // 3 colonne, 1 per chunk (larghezza obbliga colsPerPage=1) → 3 chunk,
     // ognuno con 1 sola riga → 3 pagine.
     expect(result.pages).toHaveLength(3);
+  });
+
+  it('applies the pivot style to every row and the band style to its own header row', () => {
+    const pivot = makePivot(2, 2, '20mm', '20mm');
+    pivot.style = { background: '#eeeeee' };
+    pivot.headers[0]!.style = { background: '#333333' };
+    const doc: PrintDocument = {
+      schemaVersion: 1,
+      page: { size: 'A4', orientation: 'portrait', margin: '15mm' },
+      body: { type: 'text', value: 'x' },
+    };
+
+    const result = paginate(doc, { body: pivot }, new LeafCountMeasurer(10));
+
+    // Le righe sono i block direction:'row' (le celle dentro sono wrapper 'column').
+    const rows = rowBlocks(result.pages[0]!.nodes);
+    expect(rows).toHaveLength(3); // 1 banda header + 2 righe dati
+
+    // la banda vince sullo stile del pivot; le righe dati ereditano quello del pivot
+    expect(rows[0]!.style?.background).toBe('#333333');
+    expect(rows[1]!.style?.background).toBe('#eeeeee');
+    expect(rows[2]!.style?.background).toBe('#eeeeee');
+  });
+
+  it('counts the row gap when deciding how many columns fit on a page', () => {
+    // area utile 180mm, rowHeader 20mm, colonne 40mm: senza gap ne entrano 4.
+    // Con gap 10mm ogni colonna ne occupa 50 → (180-20)/50 = 3 per pagina.
+    const pivot = makePivot(1, 6, '20mm', '40mm');
+    pivot.style = { gap: '10mm' };
+    const doc: PrintDocument = {
+      schemaVersion: 1,
+      page: { size: 'A4', orientation: 'portrait', margin: '15mm' },
+      body: { type: 'text', value: 'x' },
+    };
+
+    const result = paginate(doc, { body: pivot }, new LeafCountMeasurer(10));
+
+    // 6 colonne a 3 per pagina → 2 chunk → 2 pagine
+    expect(result.pages).toHaveLength(2);
+    expect(leafValues(result.pages[0]!.nodes)).toEqual(['corner', 'H0', 'H1', 'H2', 'R0', '0-0', '0-1', '0-2']);
+  });
+
+  it('does not overflow the page when the pivot follows other content', () => {
+    // Il pivot prosegue sotto un titolo già presente sulla pagina: le sue righe
+    // devono essere impaginate sull'altezza RIMASTA, non su quella piena.
+    const measurer = new LeafCountMeasurer(10);
+    const doc: PrintDocument = {
+      schemaVersion: 1,
+      page: { size: 'A4', orientation: 'portrait', margin: '15mm' }, // area utile 267mm
+      body: { type: 'text', value: 'x' },
+    };
+    const resolved: ResolvedDocument = {
+      body: {
+        kind: 'block',
+        direction: 'column',
+        children: [
+          {
+            kind: 'block',
+            direction: 'column',
+            children: Array.from({ length: 5 }, (_, i) => textCell(`T${i}`)), // titolo da 50
+          },
+          makePivot(8, 2, '20mm', '20mm'),
+        ],
+      },
+    };
+
+    const result = paginate(doc, resolved, measurer);
+
+    result.pages.forEach(page => {
+      const height = page.nodes.reduce((sum, n) => sum + measurer.measure(n, 180), 0);
+      expect(height).toBeLessThanOrEqual(267);
+    });
+  });
+
+  it('never splits a table row across two pages', () => {
+    // Ogni cella dati deve restare sulla stessa pagina dell'intestazione
+    // della sua riga: una riga strappata a metà è una tabella rotta.
+    const resolved: ResolvedDocument = { body: makePivot(9, 2, '20mm', '20mm') };
+    const doc: PrintDocument = {
+      schemaVersion: 1,
+      page: { size: 'A4', orientation: 'portrait', margin: '15mm' },
+      body: { type: 'text', value: 'x' },
+    };
+
+    const result = paginate(doc, resolved, new LeafCountMeasurer(10));
+    expect(result.pages.length).toBeGreaterThan(1); // altrimenti il test non prova nulla
+
+    const pageOf = new Map<string, number>();
+    result.pages.forEach((page, index) => {
+      leafValues(page.nodes).forEach(value => {
+        if (!pageOf.has(value)) pageOf.set(value, index);
+      });
+    });
+
+    for (let i = 0; i < 9; i++) {
+      const rowPage = pageOf.get(`R${i}`);
+      expect(rowPage).toBeDefined();
+      expect(pageOf.get(`${i}-0`)).toBe(rowPage);
+      expect(pageOf.get(`${i}-1`)).toBe(rowPage);
+    }
   });
 });
