@@ -1,0 +1,24 @@
+{
+    "name": "@print-engine/designer",
+    "version": "0.0.1",
+    "private": true,
+    "description": "Visual editor for PrintDocument templates: structural tree view, property panels per node type, and a live preview driven by the real resolve/paginate/render pipeline. Edits the PrintDocument directly — no intermediate representation.",
+    "type": "module",
+    "scripts": {
+        "dev": "vite"
+    },
+    "dependencies": {
+        "@print-engine/core": "workspace:*",
+        "@print-engine/expr": "workspace:*",
+        "@print-engine/schema": "workspace:*",
+        "@print-engine/adapter-html": "workspace:*",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8"
+    },
+    "devDependencies": {
+        "vite": "^7.0.0",
+        "@vitejs/plugin-react": "^5.0.0",
+        "@types/react": "^19.2.17",
+        "@types/react-dom": "^19.2.3"
+    }
+}
