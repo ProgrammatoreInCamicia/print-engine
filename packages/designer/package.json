@@ -5,7 +5,8 @@
     "description": "Visual editor for PrintDocument templates: structural tree view, property panels per node type, and a live preview driven by the real resolve/paginate/render pipeline. Edits the PrintDocument directly — no intermediate representation.",
     "type": "module",
     "scripts": {
-        "dev": "vite"
+        "dev": "vite",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "dependencies": {
         "@print-engine/core": "workspace:*",

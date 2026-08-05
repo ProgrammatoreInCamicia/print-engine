@@ -76,6 +76,40 @@ describe('paths', () => {
 
         expect(result).toBeUndefined();
     });
+
+    it('returns undefined for a path that walks through a primitive', () => {
+        // 'value' porta a una stringa: i passi successivi non denotano un nodo.
+        const path: NodePath = ['body', 'children', 0, 'detail', 'value', 'oltre'];
+
+        expect(getAtPath(doc, path)).toBeUndefined();
+    });
+
+    it('returns undefined for a numeric step on an object slot', () => {
+        expect(getAtPath(doc, ['body', 'children', 0, 'detail', 0])).toBeUndefined();
+    });
+
+    it('fills an empty optional slot instead of failing', () => {
+        const path: NodePath = ['body', 'children', 0, 'groupHeader'];
+        const header: Node = { type: 'text', value: 'intestazione' };
+
+        const newDoc = setAtPath(doc, path, header);
+
+        expect(getAtPath(newDoc, path)).toEqual(header);
+    });
+
+    it('throws instead of writing a hole for an out-of-range index', () => {
+        const path: NodePath = ['body', 'children', 99, 'detail'];
+
+        expect(() => setAtPath(doc, path, { type: 'text', value: 'x' })).toThrow();
+        // il documento originale resta intatto: nessun array allungato a 100
+        expect((doc.body as Extract<Node, { type: 'stack' }>).children).toHaveLength(1);
+    });
+
+    it('throws instead of creating a phantom key for a path through a missing node', () => {
+        const path: NodePath = ['body', 'inesistente', 'x'];
+
+        expect(() => setAtPath(doc, path, { type: 'text', value: 'x' })).toThrow();
+    });
 });
 
 describe('childPaths', () => {
@@ -183,5 +217,9 @@ describe('pathKey / parsePathKey', () => {
 
     it('produces a stable, joinable string', () => {
         expect(pathKey(['body', 'children', 2])).toBe('body/children/2');
+    });
+
+    it('round-trips the empty path', () => {
+        expect(parsePathKey(pathKey([]))).toEqual([]);
     });
 });
