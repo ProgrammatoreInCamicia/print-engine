@@ -1,6 +1,7 @@
 import './App.css';
 import { exampleDoc } from './data/exampleDoc';
 import { DesignerProvider, useDesigner } from './state/DesignerContext';
+import { StructureNode } from './structure/StructureNode';
 
 export function App() {
 
@@ -23,6 +24,7 @@ export function AppLayout() {
 
             <main className="app-structure">
                 <h2>Struttura</h2>
+                <StructureNode node={doc.body} path={['body']} />
                 {/* Passo 4: StructureNode, superficie di editing */}
             </main>
 

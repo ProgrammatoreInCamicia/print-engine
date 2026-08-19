@@ -1,0 +1,30 @@
+/* StructureNode.css */
+.structure-node {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 4px 0 4px 16px;  /* il margine sinistro crea la scala visiva dell'annidamento */
+    background: #fff;
+}
+
+.structure-node.selected {
+    border-color: #1a73e8;
+    background: #eef4fc;
+}
+
+.structure-node-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #888;
+    font-weight: 600;
+}
+
+.structure-node-empty {
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 4px 0 4px 16px;
+    color: #aaa;
+    font-style: italic;
+    font-size: 12px;
+}
