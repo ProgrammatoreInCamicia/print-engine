@@ -9,12 +9,12 @@ it('expands a repeat into one node per record', () => {
     page: { size: 'A4' },
     body: {
       type: 'repeat',
-      dataSource: '$.runs',
-      template: { type: 'field', bind: '$item.hour' },
+      dataSource: '$.analyses',
+      template: { type: 'field', bind: '$item.time' },
     },
   };
   const data = {
-    runs: [{ hour: '08:00' }, { hour: '09:00' }, { hour: '08:30' }],
+    analyses: [{ time: '08:00' }, { time: '09:00' }, { time: '08:30' }],
   };
 
   const result = resolve(doc, data, new TsExpressionEngine());
@@ -39,18 +39,18 @@ it('groups records and computes subtotals', () => {
     page: { size: 'A4' },
     body: {
       type: 'group',
-      dataSource: '$.runs',
-      groupBy: '$item.line',
-      groupHeader: { type: 'field', bind: '$group.key', prefix: 'Line ' },
-      detail: { type: 'field', bind: '$item.hour' },
-      groupFooter: { type: 'field', bind: 'SUM($group.items.passengers)', prefix: 'Total: ' },
+      dataSource: '$.analyses',
+      groupBy: '$item.ward',
+      groupHeader: { type: 'field', bind: '$group.key', prefix: 'Ward ' },
+      detail: { type: 'field', bind: '$item.time' },
+      groupFooter: { type: 'field', bind: 'SUM($group.items.samples)', prefix: 'Total: ' },
     },
   };
   const data = {
-    runs: [
-      { line: 'C50', hour: '08:00', passengers: 12 },
-      { line: 'C50', hour: '09:00', passengers: 8 },
-      { line: 'C80', hour: '08:30', passengers: 20 },
+    analyses: [
+      { ward: 'Ematologia', time: '08:00', samples: 12 },
+      { ward: 'Ematologia', time: '09:00', samples: 8 },
+      { ward: 'Biochimica', time: '08:30', samples: 20 },
     ],
   };
 
@@ -60,11 +60,11 @@ it('groups records and computes subtotals', () => {
   const children = (result.body as { children: ResolvedNode[] }).children;
   expect(children).toHaveLength(7);
   expect(children.map(c => (c as { value: string }).value)).toEqual([
-    'Line C50',
+    'Ward Ematologia',
     '08:00',
     '09:00',
     'Total: 20',
-    'Line C80',
+    'Ward Biochimica',
     '08:30',
     'Total: 20',
   ]);
@@ -103,7 +103,7 @@ describe('resolveStyle', () => {
   it('evaluates expression values bound to data', () => {
     const ctx: EvalContext = {
       root: {},
-      group: { key: 'C50', items: [{ color: '#8db3e2' }] },
+      group: { key: 'Ematologia', items: [{ color: '#8db3e2' }] },
     };
     const result = resolveStyle(
       { background: '=$group.items[0].color', color: '#fff' },
@@ -197,7 +197,7 @@ it('resolves a pivot node into a row × column grid', () => {
 
   // Una banda header, con corner e una cella per colonna.
   expect(pivot.headers).toHaveLength(1);
-  expect(pivot.headers[0]!.corner).toEqual({ kind: 'text', value: 'corner', style: undefined, inline: undefined });
+  expect(pivot.headers[0]!.corner).toEqual({ kind: 'text', value: 'corner', style: undefined, inward: undefined });
   expect(pivot.headers[0]!.cells.map(c => (c.kind === 'text' ? c.value : '?'))).toEqual(['C0', 'C1']);
 
   // Due righe, ciascuna col proprio header e due celle (una per colonna).

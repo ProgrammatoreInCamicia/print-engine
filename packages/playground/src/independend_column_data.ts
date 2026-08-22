@@ -1,9 +1,9 @@
 import { Node, PrintDocument, Style } from "@print-engine/schema";
 
 const COL = {
-  hour: '16mm',
-  cadence: '16mm',
-  note: '12mm',
+  time: '16mm',
+  priority: '16mm',
+  code: '12mm',
 } as const;
 
 const cellBase: Style = { size: '8pt', align: 'center' };
@@ -13,20 +13,20 @@ const tableHeader: Node = {
   direction: 'row',
   style: { background: '#bfbfbf', gap: '1mm', padding: '1px 2px', weight: 700 },
   children: [
-    { type: 'text', value: 'Ora', style: { ...cellBase, width: COL.hour, weight: 700 } },
-    { type: 'text', value: 'Cadenza', style: { ...cellBase, width: COL.cadence, weight: 700 } },
-    { type: 'text', value: 'Destinazione', style: { ...cellBase, grow: 1, weight: 700 } },
-    { type: 'text', value: 'Nota', style: { ...cellBase, width: COL.note, weight: 700 } },
+    { type: 'text', value: 'Ora', style: { ...cellBase, width: COL.time, weight: 700 } },
+    { type: 'text', value: 'Priorità', style: { ...cellBase, width: COL.priority, weight: 700 } },
+    { type: 'text', value: 'Esame', style: { ...cellBase, grow: 1, weight: 700 } },
+    { type: 'text', value: 'Cod.', style: { ...cellBase, width: COL.code, weight: 700 } },
   ],
 };
 
-function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
+function sectionColumn(sectionKey: string, subtitleKey: string, badgeColor: string): Node {
   return {
     type: 'columns',
     mode: 'independent',
     style: { grow: 1, padding: '0 3px 0 0', gap: '4mm' },
     children: [
-      // ─── Colonna sinistra: badge tondo + "bastone" del percorso ───
+      // --- Left column: round badge + the section "rail" ---
       {
         type: 'stack',
         direction: 'column',
@@ -34,7 +34,7 @@ function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
         children: [
           {
             type: 'field',
-            bind: `$.${lineKey}.code`,
+            bind: `$.${sectionKey}.code`,
             style: {
               background: badgeColor,
               color: '#ffffff',
@@ -48,13 +48,13 @@ function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
           },
           {
             type: 'image',
-            src: 'https://tuo-storage/route-line.png',
+            src: 'https://tuo-storage/section-rail.png',
             width: '4mm',
             style: { padding: '8px 0 0 10mm' },
           },
         ],
       },
-      // ─── Colonna destra: direzione + tabella con i gruppi ───
+      // --- Right column: subtitle + table with the groups ---
       {
         type: 'stack',
         direction: 'column',
@@ -62,7 +62,7 @@ function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
         children: [
           {
             type: 'field',
-            bind: `$.${dirKey}`,
+            bind: `$.${subtitleKey}`,
             style: {
               background: '#4a86c8',
               color: '#ffffff',
@@ -75,8 +75,8 @@ function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
           tableHeader,
           {
             type: 'group',
-            dataSource: `$.${lineKey}.runs`,
-            groupBy: '$item.period',
+            dataSource: `$.${sectionKey}.analyses`,
+            groupBy: '$item.shift',
             groupHeader: {
               type: 'field',
               bind: '$group.key',
@@ -100,10 +100,10 @@ function lineColumn(lineKey: string, dirKey: string, badgeColor: string): Node {
                 padding: '1px 2px',
               },
               children: [
-                { type: 'field', bind: '$item.hour', style: { ...cellBase, width: COL.hour, weight: 700 } },
-                { type: 'field', bind: '$item.cadence', style: { ...cellBase, width: COL.cadence } },
-                { type: 'field', bind: '$item.destination', style: { ...cellBase, grow: 1, weight: 700 } },
-                { type: 'field', bind: '$item.note', style: { ...cellBase, width: COL.note, weight: 700 } },
+                { type: 'field', bind: '$item.time', style: { ...cellBase, width: COL.time, weight: 700 } },
+                { type: 'field', bind: '$item.priority', style: { ...cellBase, width: COL.priority } },
+                { type: 'field', bind: '$item.exam', style: { ...cellBase, grow: 1, weight: 700 } },
+                { type: 'field', bind: '$item.code', style: { ...cellBase, width: COL.code, weight: 700 } },
               ],
             },
           },
@@ -117,7 +117,7 @@ const doc: PrintDocument = {
   schemaVersion: 1,
   page: { size: 'A4', orientation: 'portrait', margin: '10mm' },
 
-  // ─── Header e footer: ripetuti su OGNI pagina ───
+  // --- Header and footer: repeated on EVERY page ---
   regions: {
     header: {
       type: 'stack',
@@ -166,15 +166,15 @@ const doc: PrintDocument = {
             align: 'center',
           },
         },
-        { type: 'text', value: 'I BIGLIETTI SONO ACQUISTABILI A BORDO CON UN SOVRAPPREZZO.', style: { size: '7pt', weight: 700 } },
-        { type: 'text', value: 'EINZELFAHRSCHEINE SIND BEIM BUSFAHRER GEGEN AUFPREIS ERHÄLTLICH', style: { size: '7pt', weight: 700 } },
-        { type: 'text', value: 'TICKETS CAN BE BOUGHT ON BOARD, EXTRA CHARGE APPLIED', style: { size: '7pt', weight: 700 } },
-        { type: 'text', value: 'LES TICKETS PEUVENT ÊTRE ACHETÉS À BORD AVEC UN SUPPLÉMENT', style: { size: '7pt', weight: 700 } },
+        { type: 'text', value: 'I CAMPIONI DEVONO PERVENIRE IN LABORATORIO ENTRO 60 MINUTI DAL PRELIEVO.', style: { size: '7pt', weight: 700 } },
+        { type: 'text', value: 'DIE PROBEN MÜSSEN INNERHALB VON 60 MINUTEN NACH DER ENTNAHME EINTREFFEN', style: { size: '7pt', weight: 700 } },
+        { type: 'text', value: 'SAMPLES MUST REACH THE LAB WITHIN 60 MINUTES OF COLLECTION', style: { size: '7pt', weight: 700 } },
+        { type: 'text', value: 'LES ÉCHANTILLONS DOIVENT ARRIVER AU LABORATOIRE DANS LES 60 MINUTES', style: { size: '7pt', weight: 700 } },
       ],
     },
   },
 
-  // ─── Corpo: quello che si spezza fra le pagine ───
+  // --- Body: what actually breaks across pages ---
   body: {
     type: 'stack',
     direction: 'column',
@@ -184,8 +184,8 @@ const doc: PrintDocument = {
       //   direction: 'row',
       //   style: { gap: '4mm' },
       //   children: [
-      //     lineColumn('lineA', 'directionA', '#d2691e'),
-      //     lineColumn('lineB', 'directionB', '#29a3d5'),
+      //     sectionColumn('sectionA', 'subtitleA', '#d2691e'),
+      //     sectionColumn('sectionB', 'subtitleB', '#29a3d5'),
       //   ],
       // },
       {
@@ -193,8 +193,8 @@ const doc: PrintDocument = {
         mode: 'independent',
         style: { gap: '4mm' },
         children: [
-          lineColumn('lineA', 'directionA', '#d2691e'),
-          lineColumn('lineB', 'directionB', '#29a3d5'),
+          sectionColumn('sectionA', 'subtitleA', '#d2691e'),
+          sectionColumn('sectionB', 'subtitleB', '#29a3d5'),
         ],
       },
       {
@@ -204,15 +204,15 @@ const doc: PrintDocument = {
         children: [
           {
             type: 'field',
-            bind: 'SUM($.lineA.runs.passengers)',
-            prefix: 'Passeggeri linea C12: ',
+            bind: 'SUM($.sectionA.analyses.samples)',
+            prefix: 'Campioni sezione EMA: ',
             format: 'number:0',
             style: { size: '9pt', weight: 700 },
           },
           {
             type: 'field',
-            bind: 'AVG($.lineA.runs.passengers)',
-            prefix: 'Media passeggeri per corsa: ',
+            bind: 'AVG($.sectionA.analyses.samples)',
+            prefix: 'Media campioni per accettazione: ',
             format: 'number:0.00',
             style: { size: '9pt' },
           },
@@ -230,56 +230,56 @@ const doc: PrintDocument = {
         direction: 'column',
         style: { padding: '10px 0 0 0' },
         children: [
-          { type: 'text', value: "(G1) A Como transita nell'ordine da Staz. San Giovanni, P.zza Vittoria, Via Ambrosoli, Giovio, Magistri Comacini.", style: { size: '8pt' } },
-          { type: 'text', value: '(73) In arrivo a Como transita da via Piave, via Ambrosoli, V.le G. Cesare, via Milano, Piazza Vittoria, via Battisti, via N. Sauro e Piazza Verdi.', style: { size: '8pt' } },
-          { type: 'text', value: '(SCOL) Scolastici dal lunedì al sabato.', style: { size: '8pt' } },
+          { type: 'text', value: '(G1) Prelievo a digiuno da almeno 8 ore; sospendere gli integratori nelle 24 ore precedenti.', style: { size: '8pt' } },
+          { type: 'text', value: '(73) Provetta con anticoagulante, da conservare a temperatura ambiente e consegnare in giornata.', style: { size: '8pt' } },
+          { type: 'text', value: '(URG) Urgenze accettate dal lunedì al sabato.', style: { size: '8pt' } },
         ],
       },
     ],
   },
 };
 
-// Genera N corse per un periodo, così il contenuto sfora la pagina
-function runs(
-  periods: string[],
-  periodsColors: string[],
-  perPeriod: number,
+// Generates N analyses per shift, so the content overflows the page
+function analyses(
+  shifts: string[],
+  shiftColors: string[],
+  perShift: number,
   baseHour: number,
-  destinations: string[],
-  note: string,
+  exams: string[],
+  code: string,
 ) {
   const out: Array<Record<string, string | number>> = [];
-  let periodIndex = 0;
-  for (const period of periods) {
-    for (let i = 0; i < perPeriod; i++) {
+  let shiftIndex = 0;
+  for (const shift of shifts) {
+    for (let i = 0; i < perShift; i++) {
       const h = baseHour + Math.floor(i / 4);
       const m = (i % 4) * 15;
       out.push({
-        period,
-        color: String(periodsColors[periodIndex]),
-        hour: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
-        cadence: i % 3 === 0 ? 'FEST' : 'SCOL',
-        destination: destinations[i % destinations.length]!,
-        note,
-        passengers: 10 + (i % 20),
+        shift,
+        color: String(shiftColors[shiftIndex]),
+        time: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
+        priority: i % 3 === 0 ? 'URG' : 'ORD',
+        exam: exams[i % exams.length]!,
+        code,
+        samples: 10 + (i % 20),
       });
     }
-    periodIndex ++;
+    shiftIndex ++;
   }
   return out;
 }
 
 const data = {
-  header: { subtitle: 'GRI_14/03/2022', title: 'COMO - VIA AMBROSOLI' },
-  directionA: 'Dir. Lugano - Porlezza - MENAGGIO',
-  directionB: 'Dir. Ponzate - Tavernerio - Lipomo - COMO',
-  lineA: {
-    code: 'C12',
-    runs: runs(['test', 'test2', 'test3', 'test4'], ['#8db3e2', '#e2a8b3', '#e2d68d', 'green'], 12, 6, ['MENAGGIO', 'CARLAZZO', 'SAN FERMO'], 'G1'),
+  header: { subtitle: 'REV_14/03/2022', title: 'LABORATORIO - RIEPILOGO TURNI' },
+  subtitleA: 'Sez. Ematologia - Coagulazione',
+  subtitleB: 'Sez. Biochimica clinica - Urine',
+  sectionA: {
+    code: 'EMA',
+    analyses: analyses(['Turno 1', 'Turno 2', 'Turno 3', 'Turno 4'], ['#8db3e2', '#e2a8b3', '#e2d68d', 'green'], 12, 6, ['EMOCROMO', 'PT/INR', 'FIBRINOGENO'], 'G1'),
   },
-  lineB: {
-    code: 'C43',
-    runs: runs(['test', 'test2', 'test3', 'test4'],  ['#8db3e2', '#e2a8b3', '#e2d68d', 'green'], 12, 7, ['COMO', 'SAN FERMO DELLA'], '73'),
+  sectionB: {
+    code: 'BIO',
+    analyses: analyses(['Turno 1', 'Turno 2', 'Turno 3', 'Turno 4'],  ['#8db3e2', '#e2a8b3', '#e2d68d', 'green'], 12, 7, ['GLICEMIA', 'COLTURA URINE'], '73'),
   },
   meta: { generatedAt: '2026-01-15' },
 };

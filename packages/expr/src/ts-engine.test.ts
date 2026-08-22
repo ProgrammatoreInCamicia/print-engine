@@ -87,15 +87,15 @@ describe('tokenize', () => {
     });
 
     it('tokenize array index', () => {
-        expect(tokenize('$.corse[0].orario')).toEqual([
+        expect(tokenize('$.analyses[0].time')).toEqual([
             { t: 'root', v: '$' },
             { t: 'dot' },
-            { t: 'ident', v: 'corse' },
+            { t: 'ident', v: 'analyses' },
             { t: 'lbrack' },
             { t: 'num', v: 0 },
             { t: 'rbrack' },
             { t: 'dot' },
-            { t: 'ident', v: 'orario' },
+            { t: 'ident', v: 'time' },
             { t: 'eof' },
         ]);
     });
