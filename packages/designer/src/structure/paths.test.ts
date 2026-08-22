@@ -67,18 +67,18 @@ describe('paths', () => {
         const oldSibling = (docWithTwoChildren.body as Extract<Node, { type: 'stack' }>).children[1];
         const newSibling = (newDoc.body as Extract<Node, { type: 'stack' }>).children[1];
 
-        expect(newSibling).toBe(oldSibling); // stesso riferimento, non solo stesso valore
+        expect(newSibling).toBe(oldSibling); // same reference, not just same value
     });
 
     it('returns undefined for a path that does not exist', () => {
-        const path: NodePath = ['body', 'children', 5, 'detail'];  // indice fuori range
+        const path: NodePath = ['body', 'children', 5, 'detail'];  // index out of range
         const result = getAtPath(doc, path);
 
         expect(result).toBeUndefined();
     });
 
     it('returns undefined for a path that walks through a primitive', () => {
-        // 'value' porta a una stringa: i passi successivi non denotano un nodo.
+        // 'value' leads to a string: the steps after it denote no node.
         const path: NodePath = ['body', 'children', 0, 'detail', 'value', 'oltre'];
 
         expect(getAtPath(doc, path)).toBeUndefined();
@@ -101,7 +101,7 @@ describe('paths', () => {
         const path: NodePath = ['body', 'children', 99, 'detail'];
 
         expect(() => setAtPath(doc, path, { type: 'text', value: 'x' })).toThrow();
-        // il documento originale resta intatto: nessun array allungato a 100
+        // the original document is untouched: no array stretched to 100
         expect((doc.body as Extract<Node, { type: 'stack' }>).children).toHaveLength(1);
     });
 
@@ -152,7 +152,7 @@ describe('childPaths', () => {
             dataSource: '$.items',
             groupBy: '$item.x',
             detail: { type: 'text', value: 'detail' },
-            // groupHeader e groupFooter assenti di proposito
+            // groupHeader and groupFooter deliberately absent
         };
 
         const result = childPaths(groupNode, ['body']);

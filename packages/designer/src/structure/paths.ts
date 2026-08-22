@@ -3,10 +3,16 @@ import { Node, PrintDocument } from "@print-engine/schema"
 export type PathStep = string | number
 export type NodePath = readonly PathStep[];
 
-export interface ChildPathEntry {
+export type ChildPathEntry = {
     label: string;
     path: NodePath;
-    isEmpty: boolean;
+    isEmpty: false;
+    node: Node;
+} | {
+    label: string;
+    path: NodePath;
+    isEmpty: true;
+    node?: never;
 }
 
 export function getAtPath(doc: PrintDocument, path: NodePath): Node | undefined {
@@ -21,9 +27,9 @@ export function getAtPath(doc: PrintDocument, path: NodePath): Node | undefined 
         } else if (isObject(current)) {
             current = current[step];
         } else {
-            // primitivo, null o undefined: non si può scendere oltre, e il
-            // percorso non denota un nodo. Senza questo ramo il ciclo
-            // proseguirebbe restituendo il primitivo travestito da Node.
+            // primitive, null or undefined: we cannot go any deeper, and the
+            // path does not denote a node. Without this branch the loop would
+            // carry on and return the primitive disguised as a Node.
             return undefined;
         }
     }
@@ -39,10 +45,10 @@ export function setAtPath(doc: PrintDocument, path: NodePath, node: Node): Print
 }
 
 /**
- * Il fallimento è segnalato dove accade, non propagato come `undefined`:
- * un `undefined` restituito verrebbe scritto nella copia del contenitore
- * (buchi nell'array, chiavi fantasma negli oggetti) e il documento
- * risulterebbe corrotto senza che nessuno se ne accorga.
+ * Failure is reported where it happens, not propagated as `undefined`:
+ * a returned `undefined` would be written into the container's copy
+ * (holes in arrays, phantom keys in objects) and the document would end
+ * up corrupted without anyone noticing.
  */
 function setNodeAtPath(node: unknown, path: NodePath, newNode: Node, fullPath: NodePath): unknown {
     if (path.length === 0) {
@@ -54,7 +60,7 @@ function setNodeAtPath(node: unknown, path: NodePath, newNode: Node, fullPath: N
     if (Array.isArray(node)) {
         // node is an array, step should be a number
         if (typeof step !== 'number' || step < 0 || step >= node.length) {
-            throw new Error(`setAtPath: indice fuori range in '${pathKey(fullPath)}' (passo '${step}')`);
+            throw new Error(`setAtPath: index out of range in '${pathKey(fullPath)}' (step '${step}')`);
         }
         const copy = [...node];
         copy[step] = setNodeAtPath(node[step], path.slice(1), newNode, fullPath);
@@ -62,16 +68,16 @@ function setNodeAtPath(node: unknown, path: NodePath, newNode: Node, fullPath: N
     }
 
     if (isObject(node)) {
-        // Una chiave assente va bene: è il caso dello slot vuoto da riempire
-        // (es. `groupHeader`). Se restano altri passi, la ricorsione riceve
-        // `undefined` e fallisce qui sotto.
+        // A missing key is fine: that is the empty slot being filled
+        // (e.g. `groupHeader`). If further steps remain, the recursion gets
+        // `undefined` and fails below.
         return {
             ...node,
             [step]: setNodeAtPath(node[step], path.slice(1), newNode, fullPath)
         };
     }
 
-    throw new Error(`setAtPath: il percorso '${pathKey(fullPath)}' attraversa un nodo inesistente al passo '${step}'`);
+    throw new Error(`setAtPath: path '${pathKey(fullPath)}' walks through a missing node at step '${step}'`);
 }
 
 export function childPaths(node: Node, path: NodePath): ChildPathEntry[] {
@@ -83,42 +89,27 @@ export function childPaths(node: Node, path: NodePath): ChildPathEntry[] {
         case 'canvas':
         case 'columns':
         case 'pivot':
-            // hanno figli, ma per la v1 restano nel ramo JSON grezzo:
-            // non li esponiamo nell'editor strutturale
+            // they do have children, but in v1 they stay in the raw-JSON
+            // branch: we do not expose them in the structural editor
             return [];
         case 'stack':
             return node.children.map((child, i) => {
                 return {
                     label: `${i + 1}.${child.type} `,
                     isEmpty: false,
-                    path: [...path, 'children', i]
+                    path: [...path, 'children', i],
+                    node: child,
                 }
             });
         case 'group':
             return [
-                {
-                    label: 'group header',
-                    isEmpty: node.groupHeader == null,
-                    path: [...path, 'groupHeader']
-                },
-                {
-                    label: 'group detail',
-                    isEmpty: false,
-                    path: [...path, 'detail']
-                },
-                {
-                    label: 'group footer',
-                    isEmpty: node.groupFooter == null,
-                    path: [...path, 'groupFooter']
-                }
+                slotEntry('group header', [...path, 'groupHeader'], node.groupHeader),
+                slotEntry('group detail', [...path, 'detail'], node.detail),
+                slotEntry('group footer', [...path, 'groupFooter'], node.groupFooter),
             ];
         case 'repeat':
             return [
-                {
-                    label: 'repeat template',
-                    isEmpty: false,
-                    path: [...path, 'template']
-                }
+                slotEntry('repeat template', [...path, 'template'], node.template),
             ];
     }
 }
@@ -135,4 +126,11 @@ export function parsePathKey(key: string): NodePath {
         const num = part == '' ? NaN : Number(part);
         return Number.isNaN(num) ? part : num;
     });
+}
+
+function slotEntry(label: string, path: NodePath, node: Node | undefined): ChildPathEntry {
+    if (node == null) {
+        return { label, isEmpty: true, path };
+    }
+    return { label, isEmpty: false, path, node };
 }

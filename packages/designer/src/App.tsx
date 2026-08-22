@@ -19,18 +19,18 @@ export function AppLayout() {
         <div className="app">
             <aside className="app-palette">
                 <h2>Palette</h2>
-                {/* Passo 9: blocchi trascinabili */}
+                {/* Step 9: draggable blocks */}
             </aside>
 
             <main className="app-structure">
                 <h2>Struttura</h2>
                 <StructureNode node={doc.body} path={['body']} />
-                {/* Passo 4: StructureNode, superficie di editing */}
+                {/* Step 4: StructureNode, the editing surface */}
             </main>
 
             <aside className="app-properties">
                 <h2>Proprietà</h2>
-                {/* Passo 5: pannello per il nodo selezionato */}
+                {/* Step 5: panel for the selected node */}
             </aside>
         </div>
     )

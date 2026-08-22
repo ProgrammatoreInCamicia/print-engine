@@ -3,7 +3,7 @@
     border: 1px solid #ccc;
     border-radius: 4px;
     padding: 8px;
-    margin: 4px 0 4px 16px;  /* il margine sinistro crea la scala visiva dell'annidamento */
+    margin: 4px 0 4px 16px;  /* the left margin is what makes nesting visible */
     background: #fff;
 }
 

@@ -1,10 +1,11 @@
 import { Node } from "@print-engine/schema";
-import { childPaths, getAtPath, NodePath, pathKey } from "./paths";
+import { childPaths, NodePath, pathKey } from "./paths";
 import { useDesigner } from "../state/DesignerContext";
 import './StructureNode.css';
+import { describeNode } from "./labels";
 
 export function StructureNode({ node, path }: { node: Node, path: NodePath }) {
-    const { doc, selection, setSelection } = useDesigner();
+    const { selection, setSelection } = useDesigner();
 
     const isSelected = selection !== null && pathKey(selection) === pathKey(path);
 
@@ -17,26 +18,28 @@ export function StructureNode({ node, path }: { node: Node, path: NodePath }) {
             e.stopPropagation();
             setSelection(path);
         }}>
-            <span className="structure-node-label">{node.type}</span>
+            <span className="structure-node-label">{describeNode(node)}</span>
             {entries.map(entry => {
                 if (entry.isEmpty) {
-                    return <div className="structure-node-empty" key={pathKey(entry.path)}>{entry.label} (empty)</div>;
+                    return (
+                        <div 
+                        className="structure-node-empty" key={pathKey(entry.path)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                        }}>
+                            {entry.label} (empty)
+                        </div>
+                    );
                 } else {
-                    const childNode = getAtPath(doc, entry.path);
-                    if (!childNode) {
-                        return <div key={pathKey(entry.path)}>Missing node at path: {pathKey(entry.path)}</div>;
-                    } else {
-                        return (
-                            <StructureNode
-                                key={pathKey(entry.path)}
-                                node={childNode}
-                                path={entry.path}
-                            />
-                        )
-                    }
+                    const childNode = entry.node;
+                    return (
+                        <StructureNode
+                            key={pathKey(entry.path)}
+                            node={childNode}
+                            path={entry.path}
+                        />
+                    )
                 }
-                // per ciascuna entry: se è vuota, mostra un placeholder;
-                // altrimenti recupera il nodo figlio e richiama StructureNode
             })}
         </div>
     );
