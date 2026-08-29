@@ -9,10 +9,14 @@ export function styleToCss(style: Style | undefined): string {
     styleDeclaration.background = style.background ?? '';
     styleDeclaration.color = style.color ?? '';
     styleDeclaration.border = style.border ?? '';
-    styleDeclaration.borderBottom = style.borderBottom ?? '';
-    styleDeclaration.borderRight = style.borderRight ?? '';
-    styleDeclaration.borderLeft = style.borderLeft ?? '';
-    styleDeclaration.borderTop = style.borderTop ?? '';
+    // Assigning '' to a longhand REMOVES it, and a shorthand is stored expanded
+    // into its longhands: clearing the four sides would wipe out the `border`
+    // set just above, leaving the element with no border at all. So a side is
+    // only assigned when it is actually declared.
+    if (style.borderBottom != null) styleDeclaration.borderBottom = style.borderBottom;
+    if (style.borderRight != null) styleDeclaration.borderRight = style.borderRight;
+    if (style.borderLeft != null) styleDeclaration.borderLeft = style.borderLeft;
+    if (style.borderTop != null) styleDeclaration.borderTop = style.borderTop;
     styleDeclaration.fontFamily = style.font ?? '';
     styleDeclaration.padding = style.padding ?? '';
     styleDeclaration.fontWeight = (style.weight ?? '') + '';
