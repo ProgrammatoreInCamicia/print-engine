@@ -1,9 +1,10 @@
 export const CURRENT_SCHEMA_VERSION = 1;
 
+type StyleExpr = `\=${string}`;
 export interface Style {
     font?: string;
     size?: Length;
-    weight?: number;
+    weight?: number | StyleExpr;
     color?: string;
     background?: string;
     align?: 'left' | 'center' | 'right' | 'justify';
@@ -15,7 +16,7 @@ export interface Style {
     borderLeft?: string;
     gap?: Length;
     width?: Length;
-    grow?: number;
+    grow?: number | StyleExpr;
     borderRadius?: Length;
 }
 
