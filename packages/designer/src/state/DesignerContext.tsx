@@ -1,24 +1,42 @@
-import { PrintDocument } from "@print-engine/schema";
-import { createContext, ReactNode, useContext, useState } from "react";
+import { Node, PrintDocument } from "@print-engine/schema";
+import { createContext, ReactNode, useContext, useReducer, useState } from "react";
 import { NodePath } from "../structure/paths";
+import { designerReducer } from "./reducer";
 
 interface DesignerContextValue {
     doc: PrintDocument;
     selection: NodePath | null;
     setSelection: (path: NodePath | null) => void;
+    updateNode: (path: NodePath, node: Node) => void;
+    undo: () => void;
+    redo: () => void;
+    canUndo: boolean;
+    canRedo: boolean;
 }
 
 const DesignerContext = createContext<DesignerContextValue | null>(null);
 
 export function DesignerProvider({doc, children} : {doc: PrintDocument, children: ReactNode}) {
-    const [selection, setSelection] = useState<NodePath | null>(null);
+    const [state, dispatch] = useReducer(designerReducer, {
+        current: doc,
+        future: [],
+        past: [],
+        selection: null
+    });
+
+    const value: DesignerContextValue = {
+        doc: state.current,
+        selection: state.selection,
+        setSelection: (path) => dispatch({ type: 'SET_SELECTION', path }),
+        updateNode: (path, node) => dispatch({ type: 'UPDATE_NODE', path, node }),
+        undo: () => dispatch({ type: 'UNDO' }),
+        redo: () => dispatch({ type: 'REDO' }),
+        canUndo: state.past.length > 0,
+        canRedo: state.future.length > 0,
+    };
 
     return (
-        <DesignerContext value={{
-            doc,
-            selection,
-            setSelection
-        }}>
+        <DesignerContext value={value}>
             {children}
         </DesignerContext>
     )

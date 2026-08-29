@@ -1,5 +1,6 @@
 import './App.css';
 import { exampleDoc } from './data/exampleDoc';
+import { PropertiesPanel } from './panels/PropertiesPanel';
 import { DesignerProvider, useDesigner } from './state/DesignerContext';
 import { StructureNode } from './structure/StructureNode';
 
@@ -13,7 +14,7 @@ export function App() {
 }
 
 export function AppLayout() {
-    const { doc, selection } = useDesigner();
+    const { doc } = useDesigner();
 
     return (
         <div className="app">
@@ -30,6 +31,7 @@ export function AppLayout() {
 
             <aside className="app-properties">
                 <h2>Proprietà</h2>
+                <PropertiesPanel />
                 {/* Step 5: panel for the selected node */}
             </aside>
         </div>
