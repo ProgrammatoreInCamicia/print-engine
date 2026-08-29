@@ -10,6 +10,8 @@ export function styleToCss(style: Style | undefined): string {
     styleDeclaration.color = style.color ?? '';
     styleDeclaration.border = style.border ?? '';
     styleDeclaration.borderBottom = style.borderBottom ?? '';
+    styleDeclaration.borderRight = style.borderRight ?? '';
+    styleDeclaration.borderLeft = style.borderLeft ?? '';
     styleDeclaration.borderTop = style.borderTop ?? '';
     styleDeclaration.fontFamily = style.font ?? '';
     styleDeclaration.padding = style.padding ?? '';

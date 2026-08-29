@@ -11,6 +11,8 @@ export interface Style {
     border?: string;
     borderTop?: string;
     borderBottom?: string;
+    borderRight?: string;
+    borderLeft?: string;
     gap?: Length;
     width?: Length;
     grow?: number;
