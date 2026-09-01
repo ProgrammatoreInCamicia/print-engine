@@ -5,16 +5,15 @@ import { DesignerProvider, useDesigner } from './state/DesignerContext';
 import { StructureNode } from './structure/StructureNode';
 
 export function App() {
-
     return (
-        <DesignerProvider doc={exampleDoc}>
+        <DesignerProvider initialDoc={exampleDoc}>
             <AppLayout />
         </DesignerProvider>
     );
 }
 
 export function AppLayout() {
-    const { doc } = useDesigner();
+    const { doc, undo, redo, canUndo, canRedo, setSelection } = useDesigner();
 
     return (
         <div className="app">
@@ -23,10 +22,13 @@ export function AppLayout() {
                 {/* Step 9: draggable blocks */}
             </aside>
 
-            <main className="app-structure">
-                <h2>Struttura</h2>
+            <main className="app-structure" onClick={() => setSelection(null)}>
+                <div className="app-structure-toolbar" onClick={e => e.stopPropagation()}>
+                    <h2>Struttura</h2>
+                    <button onClick={undo} disabled={!canUndo}>Annulla</button>
+                    <button onClick={redo} disabled={!canRedo}>Ripeti</button>
+                </div>
                 <StructureNode node={doc.body} path={['body']} />
-                {/* Step 4: StructureNode, the editing surface */}
             </main>
 
             <aside className="app-properties">

@@ -1,5 +1,5 @@
 import { Node, PrintDocument } from "@print-engine/schema";
-import { createContext, ReactNode, useContext, useReducer, useState } from "react";
+import { createContext, ReactNode, useContext, useReducer } from "react";
 import { NodePath } from "../structure/paths";
 import { designerReducer } from "./reducer";
 
@@ -16,9 +16,9 @@ interface DesignerContextValue {
 
 const DesignerContext = createContext<DesignerContextValue | null>(null);
 
-export function DesignerProvider({doc, children} : {doc: PrintDocument, children: ReactNode}) {
+export function DesignerProvider({initialDoc, children} : {initialDoc: PrintDocument, children: ReactNode}) {
     const [state, dispatch] = useReducer(designerReducer, {
-        current: doc,
+        current: initialDoc,
         future: [],
         past: [],
         selection: null

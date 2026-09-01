@@ -1,12 +1,14 @@
 import { useDesigner } from "../state/DesignerContext";
-import { getAtPath } from "../structure/paths";
+import { getAtPath, pathKey } from "../structure/paths";
+import { FieldPanel } from "./FieldPanel";
+import './PropertiesPanel.css';
 
 export function PropertiesPanel() {
     const { selection, doc } = useDesigner();
     let content: React.ReactNode;
 
     if (selection === null) {
-        content = <span className="properties-panel-empty">'No node is selected'</span>;
+        content = <span className="properties-panel-empty">No node is selected</span>;
     } else {
         const currentNode = getAtPath(doc, selection);
         if (currentNode === undefined) {
@@ -14,7 +16,7 @@ export function PropertiesPanel() {
         } else {
             switch (currentNode.type) {
                 case 'field':
-                    content = <div>Field panel goes here</div>;
+                    content = <FieldPanel key={pathKey(selection)} node={currentNode} path={selection} />;
                     break;
                 default:
                     content = `No panel yet for type: ${currentNode.type}`;

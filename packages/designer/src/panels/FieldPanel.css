@@ -1,0 +1,10 @@
+.field-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.field-panel label {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+}

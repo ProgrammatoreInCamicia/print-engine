@@ -29,7 +29,7 @@ describe('designerReducer', () => {
         const result = designerReducer(state, { type: 'SET_SELECTION', path: ['body'] });
 
         expect(result.selection).toEqual(['body']);
-        expect(result.current).toBe(state.current); // stesso riferimento, non toccato
+        expect(result.current).toBe(state.current); // same reference, untouched
         expect(result.past).toEqual([]);
         expect(result.future).toEqual([]);
     });
@@ -44,7 +44,7 @@ describe('designerReducer', () => {
             node: newNode,
         });
 
-        expect(result.past).toEqual([baseDoc]);
+        expect(result.past).toEqual([{ doc: baseDoc, selection: null }]);
         expect(result.future).toEqual([]);
         expect(
             (result.current.body as Extract<Node, { type: 'stack' }>).children[0],
@@ -59,7 +59,7 @@ describe('designerReducer', () => {
             node: { type: 'text', value: 'first change' },
         });
         state = designerReducer(state, { type: 'UNDO' });
-        expect(state.future).toHaveLength(1); // c'è qualcosa da rifare
+        expect(state.future).toHaveLength(1); // there is something to redo
 
         state = designerReducer(state, {
             type: 'UPDATE_NODE',
@@ -67,14 +67,14 @@ describe('designerReducer', () => {
             node: { type: 'text', value: 'different change' },
         });
 
-        expect(state.future).toEqual([]); // il vecchio "avanti" non ha più senso
+        expect(state.future).toEqual([]); // the old "forward" no longer makes sense
     });
 
     it('UNDO does nothing when past is empty', () => {
         const state = makeState(baseDoc);
         const result = designerReducer(state, { type: 'UNDO' });
 
-        expect(result).toBe(state); // nessun cambiamento, stesso oggetto
+        expect(result).toBe(state); // no change, same object
     });
 
     it('REDO does nothing when future is empty', () => {
@@ -100,18 +100,60 @@ describe('designerReducer', () => {
         expect(state.current).toEqual(afterChange);
     });
 
-    it('a full round trip leaves past and future empty again', () => {
+    it('UNDO moves the change from past to future', () => {
         let state = makeState(baseDoc);
         state = designerReducer(state, {
             type: 'UPDATE_NODE',
             path: ['body', 'children', 0],
             node: { type: 'text', value: 'x' },
         });
-        const afterChange = state.current;   // <-- catturo lo stato dopo la modifica
+        const afterChange = state.current;   // <-- capture the document produced by the change
 
         state = designerReducer(state, { type: 'UNDO' });
 
         expect(state.past).toEqual([]);
-        expect(state.future).toEqual([afterChange]);   // <-- confronto con quello, non baseDoc
+        // <-- compare against that one, not baseDoc
+        expect(state.future).toEqual([{ doc: afterChange, selection: null }]);
+    });
+
+    it('UNDO puts the selection back where it was before the change', () => {
+        let state = makeState(baseDoc);
+        state = designerReducer(state, { type: 'SET_SELECTION', path: ['body', 'children', 0] });
+        state = designerReducer(state, {
+            type: 'UPDATE_NODE',
+            path: ['body', 'children', 0],
+            node: { type: 'text', value: 'changed' },
+        });
+        // the user then clicks somewhere else before undoing
+        state = designerReducer(state, { type: 'SET_SELECTION', path: ['body'] });
+
+        state = designerReducer(state, { type: 'UNDO' });
+
+        expect(state.selection).toEqual(['body', 'children', 0]);
+    });
+
+    it('REDO restores the selection as it was when undo was pressed', () => {
+        let state = makeState(baseDoc);
+        state = designerReducer(state, { type: 'SET_SELECTION', path: ['body', 'children', 0] });
+        state = designerReducer(state, {
+            type: 'UPDATE_NODE',
+            path: ['body', 'children', 0],
+            node: { type: 'text', value: 'changed' },
+        });
+        state = designerReducer(state, { type: 'SET_SELECTION', path: ['body'] });
+        state = designerReducer(state, { type: 'UNDO' });
+
+        state = designerReducer(state, { type: 'REDO' });
+
+        expect(state.selection).toEqual(['body']);
+    });
+
+    it('SET_SELECTION alone is not undoable', () => {
+        let state = makeState(baseDoc);
+        state = designerReducer(state, { type: 'SET_SELECTION', path: ['body'] });
+
+        const result = designerReducer(state, { type: 'UNDO' });
+
+        expect(result).toBe(state);   // nothing to undo: no edit happened
     });
 });

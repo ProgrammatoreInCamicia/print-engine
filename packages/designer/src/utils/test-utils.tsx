@@ -5,7 +5,7 @@ import { render, RenderOptions } from "@testing-library/react"
 
 const AllTheProviders = ({children}: {children: ReactNode}) => {
     return (
-        <DesignerProvider doc={exampleDoc}>
+        <DesignerProvider initialDoc={exampleDoc}>
             {children}
         </DesignerProvider>
     )

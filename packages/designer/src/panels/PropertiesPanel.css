@@ -1,9 +1,9 @@
 .properties-panel {
-    font-size: 13px;
-    color: #333;
+    font-size: var(--font-size-base);
+    color: var(--color-text-default);
 }
 
 .properties-panel-empty {
-    color: #999;
+    color: var(--color-text-disabled);
     font-style: italic;
 }
