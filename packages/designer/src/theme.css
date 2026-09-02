@@ -8,6 +8,9 @@
     --color-text-muted: #888888;
     --color-border-default: #dddddd;
     --color-border-accent: #1a73e8;
+    --color-bg-invalid: #fdf3f2;
+    --color-text-invalid: #a3251b;
+    --color-border-invalid: #e6b3ae;
 
     /* Typography */
     --font-family: system-ui, sans-serif;

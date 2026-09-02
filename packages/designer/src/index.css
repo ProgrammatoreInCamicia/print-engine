@@ -1,5 +1,11 @@
-html, 
+html,
 body {
   margin: 0;
   padding: 0;
+  /* Typography belongs here, not on the editor chrome. DomMeasurer mounts its
+     off-screen div straight on document.body, so a font declared further down
+     the tree would reach the rendered preview but not the measurement: the two
+     would use different metrics and paginate() would break pages in the wrong
+     places. Whatever the preview inherits, the measurer must inherit too. */
+  font-family: var(--font-family);
 } 

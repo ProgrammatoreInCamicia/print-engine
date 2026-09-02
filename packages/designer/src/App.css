@@ -1,7 +1,7 @@
 .app {
     display: flex;
     height: 100vh;
-    font-family: var(--font-family);
+    /* No font-family here on purpose -- see the note in index.css. */
     background-color: var(--color-bg-default);
 }
 
@@ -41,4 +41,10 @@
     align-items: center;
     gap: var(--space-md);
     margin-bottom: var(--space-md);
+}
+
+/* The pane heading carries a bottom margin like the other two; inside a
+   centred flex row that margin would push it off the buttons' baseline. */
+.app-structure-toolbar h2 {
+    margin-bottom: 0;
 }

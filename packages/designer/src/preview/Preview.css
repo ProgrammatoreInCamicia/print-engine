@@ -1,0 +1,38 @@
+/* This file deliberately declares no typography.
+   The preview must inherit exactly what DomMeasurer's off-screen div inherits
+   from document.body: a font declared here would reach the drawn pages but not
+   the measurement, and the two would disagree on how tall the content is.
+   See the note in index.css. */
+
+.preview {
+    /* A sheet is 210mm wide (~794px) and does not shrink, so it can be wider
+       than the pane: it scrolls here instead of being clipped, and the toolbar
+       above stays put. */
+    overflow-x: auto;
+}
+
+.preview-resolved {
+    /* renderPages gives each sheet its own width, background, bottom margin and
+       shadow -- there is nothing to add. This only centres the stack. */
+    width: fit-content;
+    margin: 0 auto;
+}
+
+.preview-validation-issues {
+    background: var(--color-bg-invalid);
+    color: var(--color-text-invalid);
+    border: 1px solid var(--color-border-invalid);
+    border-radius: 4px;
+    padding: var(--space-sm) var(--space-md);
+}
+
+.preview-validation-issues h3 {
+    margin: 0 0 var(--space-sm) 0;
+    font-size: var(--font-size-base);
+}
+
+.preview-validation-issues ul {
+    margin: 0;
+    padding-left: var(--space-md);
+    font-size: var(--font-size-md);
+}

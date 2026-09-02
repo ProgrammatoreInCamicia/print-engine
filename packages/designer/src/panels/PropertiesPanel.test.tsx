@@ -91,6 +91,18 @@ describe('PropertiesPanel', () => {
         expect(screen.getByText('No node is selected')).toBeInTheDocument();
     });
 
+    it('keeps the selection when the preview is clicked', () => {
+        // The preview shares the pane with the structure surface, but nothing
+        // in it is selectable: clicking it must not close the panel.
+        const { container } = render(<AppLayout />);
+        selectByLabel(FIELD_LABEL);
+        fireEvent.click(screen.getByRole('button', { name: 'Anteprima' }));
+
+        fireEvent.click(container.querySelector('.preview')!);
+
+        expect(screen.getByLabelText('Bind')).toBeInTheDocument();
+    });
+
     it('keeps the selection when the toolbar is clicked', () => {
         // The toolbar lives inside the surface: without absorbing the click,
         // pressing undo would also clear the selection on the way up.
