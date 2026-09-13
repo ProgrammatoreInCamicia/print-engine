@@ -1,7 +1,9 @@
 import { Node, PrintDocument } from "@print-engine/schema";
-import { createContext, ReactNode, useContext, useReducer } from "react";
+import { createContext, ReactNode, useContext, useReducer, useState } from "react";
 import { NodePath } from "../structure/paths";
 import { designerReducer } from "./reducer";
+import { Json } from "@print-engine/expr";
+import { sampleData as initData } from "../data/sampleData";
 
 interface DesignerContextValue {
     doc: PrintDocument;
@@ -12,6 +14,8 @@ interface DesignerContextValue {
     redo: () => void;
     canUndo: boolean;
     canRedo: boolean;
+    sampleData: Json, 
+    setSampleData: (sampleData: Json) => void
 }
 
 const DesignerContext = createContext<DesignerContextValue | null>(null);
@@ -23,6 +27,7 @@ export function DesignerProvider({initialDoc, children} : {initialDoc: PrintDocu
         past: [],
         selection: null
     });
+    const [sampleData, setSampleData] = useState<Json>(initData);
 
     const value: DesignerContextValue = {
         doc: state.current,
@@ -33,6 +38,8 @@ export function DesignerProvider({initialDoc, children} : {initialDoc: PrintDocu
         redo: () => dispatch({ type: 'REDO' }),
         canUndo: state.past.length > 0,
         canRedo: state.future.length > 0,
+        sampleData,
+        setSampleData
     };
 
     return (

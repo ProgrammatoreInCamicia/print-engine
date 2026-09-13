@@ -1,4 +1,5 @@
 import { Node, PrintDocument } from "@print-engine/schema"
+import { isObject } from "../utils/common";
 
 export type PathStep = string | number
 export type NodePath = readonly PathStep[];
@@ -34,10 +35,6 @@ export function getAtPath(doc: PrintDocument, path: NodePath): Node | undefined 
         }
     }
     return current as Node | undefined;
-}
-
-function isObject(v: unknown): v is Record<string, unknown> {
-    return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
 export function setAtPath(doc: PrintDocument, path: NodePath, node: Node): PrintDocument {

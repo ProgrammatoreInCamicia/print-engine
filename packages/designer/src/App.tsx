@@ -5,7 +5,8 @@ import { PropertiesPanel } from './panels/PropertiesPanel';
 import { DesignerProvider, useDesigner } from './state/DesignerContext';
 import { StructureNode } from './structure/StructureNode';
 import { Preview } from './preview/Preview';
-import { sampleData } from './data/sampleData';
+import { DataPanel } from './data/dataPanel';
+import { FieldTreePanel } from './data/FieldTreePanel';
 
 export function App() {
     return (
@@ -16,7 +17,7 @@ export function App() {
 }
 
 export function AppLayout() {
-    const { doc, undo, redo, canUndo, canRedo, setSelection } = useDesigner();
+    const { doc, undo, redo, canUndo, canRedo, setSelection, sampleData } = useDesigner();
     const [view, setView] = useState<'structure' | 'preview'>('structure');
 
     // Only the structure view has a selection to clear. In the preview there is
@@ -26,7 +27,10 @@ export function AppLayout() {
     return (
         <div className="app">
             <aside className="app-palette">
-                <h2>Palette</h2>
+                <h2>Dati</h2>
+                <FieldTreePanel />
+                <DataPanel />
+                {/* <h2>Palette</h2> */}
                 {/* Step 9: draggable blocks */}
             </aside>
 
