@@ -4,6 +4,8 @@ import { fieldTree, FieldTreeNode } from './fieldTree';
 import { TsExpressionEngine } from '@print-engine/expr';
 import './FieldTreePanel.css';
 import { getAtPath } from '../structure/paths';
+import { isObject } from '../utils/common';
+import { useMemo } from 'react';
 
 const engine = new TsExpressionEngine();
 
@@ -19,19 +21,27 @@ const FAILURE_MESSAGES: Record<ContextFailure, string> = {
 export function FieldTreePanel() {
     const { doc, selection, sampleData, updateNode } = useDesigner();
 
-    if (selection === null) {
+    const { selectedNode, canInsert, result } = useMemo(() => {
+        if (selection === null) {
+            return { selectedNode: null, canInsert: false, result: null };
+        }
+        const selectedNode = getAtPath(doc, selection);
+        const canInsert = selectedNode?.type === 'field';
+        const scopes = scopesAt(doc, selection);
+        const result = buildContext(scopes, sampleData, engine);
+        return { selectedNode, canInsert, result };
+    }, [doc, selection, sampleData]);
+
+    if (selection === null || result === null) {
         return <div className="field-tree-panel-empty">Seleziona un nodo per vedere i campi disponibili</div>;
     }
-
-    const selectedNode = getAtPath(doc, selection);
-    const canInsert = selectedNode?.type === 'field';
-    const scopes = scopesAt(doc, selection);
-    const result = buildContext(scopes, sampleData, engine);
 
     const scopeEntries = [
         { name: '$', data: result.ctx.root },
         ...(result.ctx.item !== undefined ? [{ name: '$item', data: result.ctx.item }] : []),
     ];
+
+    const canInsertNow = canInsert && selectedNode?.type === 'field' && selection !== null;
 
     return (
         <div className="field-tree-panel">
@@ -42,28 +52,29 @@ export function FieldTreePanel() {
             )}
             {scopeEntries.map(scope => {
                 const data = scope.data;
+                const isScalar = !isObject(data) && !Array.isArray(data);
+                const canSelectScope = canInsert && isScalar;
 
                 return (
                     <div key={scope.name} className="field-tree-scope">
-                        <h4 className="field-tree-scope-name">{scope.name}</h4>
-                        {data === undefined ? (
-                            <div className="field-tree-scope-unavailable">Dati non disponibili</div>
-                        ) : (
-                            <ul className="field-tree-list">
-                                {fieldTree(data, scope.name).map(node => (
-                                    <FieldTreeItem 
-                                        key={node.expr} 
-                                        node={node} 
-                                        canInsert={canInsert}
-                                        onSelect={(expr) => {
-                                            if (canInsert && selectedNode && selection) {
-                                                updateNode(selection, { ...selectedNode, bind: expr });
-                                            }
-                                        }}
-                                    />
-                                ))}
-                            </ul>
-                        )}
+                        <h4
+                            className={`field-tree-scope-name ${canSelectScope ? 'selectable' : ''}`}
+                            onClick={() => canSelectScope && canInsertNow && updateNode(selection, { ...selectedNode, bind: scope.name })}
+                        >{scope.name}</h4>
+                        <ul className="field-tree-list">
+                            {fieldTree(data, scope.name).map(node => (
+                                <FieldTreeItem
+                                    key={node.expr}
+                                    node={node}
+                                    canInsert={canInsert}
+                                    onSelect={(expr) => {
+                                        if (canInsertNow) {
+                                            updateNode(selection, { ...selectedNode, bind: expr });
+                                        }
+                                    }}
+                                />
+                            ))}
+                        </ul>
                     </div>
                 );
             })}
@@ -76,33 +87,34 @@ export function FieldTreePanel() {
     );
 }
 
-function FieldTreeItem({ 
-    node, 
+function FieldTreeItem({
+    node,
     canInsert,
     onSelect
-}: { 
+}: {
     node: FieldTreeNode;
     canInsert: boolean;
     onSelect: (expr: string) => void;
 
 }) {
+    const canSelectField = canInsert && node.kind === 'value' && !node.isPluck;
     return (
         <li className="field-tree-item">
             <span className="field-tree-item-name">{node.name}</span>{' '}
-            <span 
-                className={`field-tree-item-expr ${!canInsert ? 'disabled' : ''}`}
-                onClick={() => canInsert && onSelect(node.expr)}
+            <span
+                className={`field-tree-item-expr ${!canSelectField ? 'disabled' : ''}`}
+                onClick={() => canSelectField && onSelect(node.expr)}
             >
                 ({node.expr})
             </span>
             {node.children && (
                 <ul className="field-tree-item-children">
                     {node.children.map(child => (
-                        <FieldTreeItem 
-                            key={child.expr} 
-                            node={child} 
-                            canInsert={canInsert} 
-                            onSelect={onSelect} 
+                        <FieldTreeItem
+                            key={child.expr}
+                            node={child}
+                            canInsert={canInsert}
+                            onSelect={onSelect}
                         />
                     ))}
                 </ul>

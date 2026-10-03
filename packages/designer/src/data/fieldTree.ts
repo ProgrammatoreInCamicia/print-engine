@@ -9,15 +9,16 @@ export interface FieldTreeNode {
     name: string              // the key as it appears in the data
     expr: string              // the ready-made expression: '$.customer.name'
     kind: FieldKind
+    isPluck: boolean
     sample?: string           // short preview of the value, for the UI
     children?: FieldTreeNode[]
 }
 
 export function fieldTree(json: Json, rootExpr: string): FieldTreeNode[] {
-    return internalFieldTree(json, rootExpr, 0);
+    return internalFieldTree(json, rootExpr, 0, false);
 }
 
-function internalFieldTree(json: Json, rootExpr: string, deep: number): FieldTreeNode[] {
+function internalFieldTree(json: Json, rootExpr: string, deep: number, throughArray: boolean): FieldTreeNode[] {
     if (isObject(json)) {
         return Object.entries(json).map(([key, value]) => {
             const kind = classifyValue(value);
@@ -26,6 +27,7 @@ function internalFieldTree(json: Json, rootExpr: string, deep: number): FieldTre
                     return {
                         name: key,
                         kind,
+                        isPluck: throughArray,
                         expr: `${rootExpr}.${key}`,
                         sample: formatSample(value),
                     }
@@ -33,8 +35,9 @@ function internalFieldTree(json: Json, rootExpr: string, deep: number): FieldTre
                     return {
                         name: key,
                         kind,
+                        isPluck: throughArray,
                         expr: `${rootExpr}.${key}`,
-                        children: deep < MAX_DEPTH ? internalFieldTree(value, `${rootExpr}.${key}`, deep + 1) : undefined,
+                        children: deep < MAX_DEPTH ? internalFieldTree(value, `${rootExpr}.${key}`, deep + 1, throughArray) : undefined,
                     }
                     
                 case 'array': {
@@ -42,18 +45,25 @@ function internalFieldTree(json: Json, rootExpr: string, deep: number): FieldTre
                     if (Array.isArray(value) && value.length > 0) {
                         const firstElement = value[0];
                         if (isObject(firstElement)) {
-                            children = deep < MAX_DEPTH ? internalFieldTree(firstElement, `${rootExpr}.${key}`, deep + 1) : undefined;
+                            children = deep < MAX_DEPTH ? internalFieldTree(firstElement, `${rootExpr}.${key}`, deep + 1, true) : undefined;
                         }
                     }
                     return {
                         name: key,
                         kind,
+                        isPluck: throughArray,
                         expr: `${rootExpr}.${key}`,
                         children
                     };
                 }
             }            
         });
+    }
+    if (Array.isArray(json) && json.length > 0) {
+        const firstElement = json[0];
+        if (isObject(firstElement)) {
+            return internalFieldTree(firstElement, rootExpr, deep, true);
+        }
     }
     return [];
 }

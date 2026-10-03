@@ -1,17 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import '@testing-library/jest-dom';
-import { exampleDoc } from "../data/exampleDoc";
-import { fireEvent, render, screen } from "../utils/test-utils";
+import { fixtureDoc, fireEvent, render, screen } from "../utils/test-utils";
 import { StructureNode } from "./StructureNode";
 
 describe("StructureNode", () => {
 
     it('renders without crashing', () => {
-        render(<StructureNode node={exampleDoc.body} path={['body']} />);
+        render(<StructureNode node={fixtureDoc.body} path={['body']} />);
     });
 
     it('selecting a deeply nested leaf selects only that leaf', () => {
-        const { container } = render(<StructureNode node={exampleDoc.body} path={['body']} />);
+        const { container } = render(<StructureNode node={fixtureDoc.body} path={['body']} />);
 
         const leaf = screen.getByText('Text: row');
         fireEvent.click(leaf);
@@ -21,7 +20,7 @@ describe("StructureNode", () => {
     });
 
     it('clicking an empty slot leaves the selection where it was', () => {
-        const { container } = render(<StructureNode node={exampleDoc.body} path={['body']} />);
+        const { container } = render(<StructureNode node={fixtureDoc.body} path={['body']} />);
 
         const groupNode = screen.getByText(/^Group by/).closest('.structure-node')!;
         fireEvent.click(groupNode);

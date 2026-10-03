@@ -30,6 +30,13 @@
     font-weight: 600;
     margin: 0 0 var(--space-xs) 0;
 }
+.field-tree-scope-name.selectable {
+    cursor: pointer;
+}
+.field-tree-scope-name.selectable:hover {
+    background: var(--color-bg-surface);
+    color: var(--color-text-default);
+}
 
 .field-tree-scope-unavailable {
     color: var(--color-text-disabled);

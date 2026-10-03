@@ -1,9 +1,13 @@
 import { Node, PrintDocument } from "@print-engine/schema";
-import { createContext, ReactNode, useContext, useReducer, useState } from "react";
+import { createContext, ReactNode, useContext, useEffect, useReducer, useState } from "react";
 import { NodePath } from "../structure/paths";
 import { designerReducer } from "./reducer";
 import { Json } from "@print-engine/expr";
 import { sampleData as initData } from "../data/sampleData";
+import { isObject } from "../utils/common";
+
+// Namespaced: the origin may host other things that persist data.
+const SAMPLE_DATA_KEY = 'print-engine.designer.sampleData';
 
 interface DesignerContextValue {
     doc: PrintDocument;
@@ -27,7 +31,37 @@ export function DesignerProvider({initialDoc, children} : {initialDoc: PrintDocu
         past: [],
         selection: null
     });
-    const [sampleData, setSampleData] = useState<Json>(initData);
+    const [sampleData, setSampleData] = useState<Json>(() => {
+        // Load sample data from localStorage if available, otherwise use the initial sample data.
+        // The read sits inside the try too: merely touching localStorage can
+        // throw (SecurityError when the browser blocks site data), and a
+        // convenience must never keep the editor from mounting.
+        try {
+            const savedSampleData = localStorage.getItem(SAMPLE_DATA_KEY);
+            if (savedSampleData == null) {
+                return initData;
+            }
+            const result: Json = JSON.parse(savedSampleData);
+            if (!isObject(result) && !Array.isArray(result)) {
+                console.error('The localStorage data must be an object or an array:', result);
+                return initData;
+            }
+            return result;
+        }
+        catch (e) {
+            console.error('Failed to read sample data from localStorage:', e);
+            return initData;
+        }
+    });
+
+    useEffect(() => {
+        try {
+            // Save sample data to localStorage whenever it changes
+            localStorage.setItem(SAMPLE_DATA_KEY, JSON.stringify(sampleData));
+        } catch (e) {
+            console.error('Failed to save sample data to localStorage:', e);
+        }
+    }, [sampleData]);
 
     const value: DesignerContextValue = {
         doc: state.current,

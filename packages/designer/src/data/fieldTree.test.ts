@@ -6,8 +6,8 @@ describe('fieldTree', () => {
         const result = fieldTree({ name: 'test', count: 5 }, '$');
 
         expect(result).toEqual([
-            { name: 'name', kind: 'value', expr: '$.name', sample: '"test"' },
-            { name: 'count', kind: 'value', expr: '$.count', sample: '5' },
+            { name: 'name', kind: 'value', expr: '$.name', sample: '"test"', isPluck: false },
+            { name: 'count', kind: 'value', expr: '$.count', sample: '5', isPluck: false },
         ]);
     });
 
@@ -19,8 +19,9 @@ describe('fieldTree', () => {
                 kind: 'object',
                 expr: '$.customer',
                 children: [
-                    { name: 'name', kind: 'value', expr: '$.customer.name', sample: '"Mario"' }
-                ]
+                    { name: 'name', kind: 'value', expr: '$.customer.name', sample: '"Mario"', isPluck: false }
+                ],
+                isPluck: false,
             }
         ]);
     });
@@ -33,8 +34,9 @@ describe('fieldTree', () => {
                 name: 'items',
                 kind: 'array',
                 expr: '$.items',
+                isPluck: false,
                 children: [
-                    { name: 'id', kind: 'value', expr: '$.items.id', sample: '1' },
+                    { name: 'id', kind: 'value', expr: '$.items.id', sample: '1', isPluck: true },
                 ],
             },
         ]);
@@ -44,7 +46,7 @@ describe('fieldTree', () => {
         const result = fieldTree({ items: [] }, '$');
 
         expect(result).toEqual([
-            { name: 'items', kind: 'array', expr: '$.items', children: undefined },
+            { name: 'items', kind: 'array', expr: '$.items', children: undefined, isPluck: false },
         ]);
     });
 
@@ -52,7 +54,7 @@ describe('fieldTree', () => {
         const result = fieldTree({ tags: ['a', 'b', 'c'] }, '$');
 
         expect(result).toEqual([
-            { name: 'tags', kind: 'array', expr: '$.tags', children: undefined },
+            { name: 'tags', kind: 'array', expr: '$.tags', children: undefined, isPluck: false },
         ]);
     });
 
@@ -76,7 +78,40 @@ describe('fieldTree', () => {
         const result = fieldTree({ category: 'A' }, '$item');
 
         expect(result).toEqual([
-            { name: 'category', kind: 'value', expr: '$item.category', sample: '"A"' },
+            { name: 'category', kind: 'value', expr: '$item.category', sample: '"A"', isPluck: false },
+        ]);
+    });
+
+    it('derives fields from an array root using its first element', () => {
+        const result = fieldTree([{ sku: 'A1', qty: 2 }, { sku: 'A2', qty: 1 }], '$');
+
+        expect(result).toEqual([
+            { name: 'sku', kind: 'value', expr: '$.sku', sample: '"A1"', isPluck: true },
+            { name: 'qty', kind: 'value', expr: '$.qty', sample: '2', isPluck: true },
+        ]);
+    });
+
+    it('propagates isPluck through an object nested inside an array', () => {
+        const result = fieldTree({ items: [{ customer: { name: 'Mario' } }] }, '$');
+
+        expect(result).toEqual([
+            {
+                name: 'items',
+                kind: 'array',
+                expr: '$.items',
+                isPluck: false,
+                children: [
+                    {
+                        name: 'customer',
+                        kind: 'object',
+                        expr: '$.items.customer',
+                        isPluck: true,
+                        children: [
+                            { name: 'name', kind: 'value', expr: '$.items.customer.name', sample: '"Mario"', isPluck: true },
+                        ],
+                    },
+                ],
+            },
         ]);
     });
 });
