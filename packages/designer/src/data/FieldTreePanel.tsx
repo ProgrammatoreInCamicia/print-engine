@@ -1,12 +1,20 @@
 import { useDesigner } from '../state/DesignerContext';
-import { scopesAt, resolveScopeData } from './scopesAt';
+import { scopesAt, buildContext, ContextFailure } from './scopesAt';
 import { fieldTree, FieldTreeNode } from './fieldTree';
 import { TsExpressionEngine } from '@print-engine/expr';
 import './FieldTreePanel.css';
-import { Expr, Node } from '@print-engine/schema';
-import { getAtPath, NodePath } from '../structure/paths';
+import { getAtPath } from '../structure/paths';
 
 const engine = new TsExpressionEngine();
+
+// Keyed on every failure the resolver can report: a new reason does not
+// compile until it has a sentence here.
+const FAILURE_MESSAGES: Record<ContextFailure, string> = {
+    'null': "l'espressione a monte non ha trovato niente",
+    'not-array': "l'espressione a monte non restituisce un elenco",
+    'empty': "l'elenco a monte è vuoto",
+    'engine-error': "l'espressione a monte non è valida",
+};
 
 export function FieldTreePanel() {
     const { doc, selection, sampleData, updateNode } = useDesigner();
@@ -18,6 +26,12 @@ export function FieldTreePanel() {
     const selectedNode = getAtPath(doc, selection);
     const canInsert = selectedNode?.type === 'field';
     const scopes = scopesAt(doc, selection);
+    const result = buildContext(scopes, sampleData, engine);
+
+    const scopeEntries = [
+        { name: '$', data: result.ctx.root },
+        ...(result.ctx.item !== undefined ? [{ name: '$item', data: result.ctx.item }] : []),
+    ];
 
     return (
         <div className="field-tree-panel">
@@ -26,8 +40,8 @@ export function FieldTreePanel() {
                     Seleziona un campo per poter inserire un'espressione
                 </div>
             )}
-            {scopes.map(scope => {
-                const data = resolveScopeData(scope, sampleData, engine);
+            {scopeEntries.map(scope => {
+                const data = scope.data;
 
                 return (
                     <div key={scope.name} className="field-tree-scope">
@@ -53,6 +67,11 @@ export function FieldTreePanel() {
                     </div>
                 );
             })}
+            {result.error && (
+                <div className="field-tree-scope-unavailable">
+                    Dati non disponibili per {result.error.scope}: {FAILURE_MESSAGES[result.error.reason]}
+                </div>
+            )}
         </div>
     );
 }

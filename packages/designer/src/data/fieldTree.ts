@@ -6,10 +6,10 @@ const MAX_DEPTH = 5;
 type FieldKind = 'value' | 'object' | 'array'
 
 export interface FieldTreeNode {
-    name: string              // la chiave come appare nei dati
-    expr: string              // l'espressione pronta: '$.customer.name'
+    name: string              // the key as it appears in the data
+    expr: string              // the ready-made expression: '$.customer.name'
     kind: FieldKind
-    sample?: string           // anteprima breve del valore, per l'interfaccia
+    sample?: string           // short preview of the value, for the UI
     children?: FieldTreeNode[]
 }
 

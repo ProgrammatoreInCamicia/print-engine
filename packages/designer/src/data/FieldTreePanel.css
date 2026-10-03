@@ -45,22 +45,26 @@
 
 .field-tree-item {
     padding: var(--space-xs) var(--space-sm);
-    border-radius: 4px;
-    cursor: pointer;
     font-size: var(--font-size-sm);
-}
-
-.field-tree-item:hover {
-    background: var(--color-bg-surface);
 }
 
 .field-tree-item-name {
     color: var(--color-text-default);
 }
 
+/* Only the expression is clickable, so only it carries the click affordance:
+   a pointer and a hover over the whole row would promise a click that the
+   name and the children never answer. */
 .field-tree-item-expr {
     color: var(--color-text-muted);
     font-size: var(--font-size-xs, 10px);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.field-tree-item-expr:not(.disabled):hover {
+    background: var(--color-bg-surface);
+    color: var(--color-text-default);
 }
 
 .field-tree-item-children {

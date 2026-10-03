@@ -5,7 +5,7 @@ import { PropertiesPanel } from './panels/PropertiesPanel';
 import { DesignerProvider, useDesigner } from './state/DesignerContext';
 import { StructureNode } from './structure/StructureNode';
 import { Preview } from './preview/Preview';
-import { DataPanel } from './data/dataPanel';
+import { DataPanel } from './data/DataPanel';
 import { FieldTreePanel } from './data/FieldTreePanel';
 
 export function App() {
